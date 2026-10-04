@@ -5,6 +5,26 @@ import type { AtmospherePreset } from '../models/timeOfDay';
 /** Three r155+ uses physical light units; classic-style intensities need this factor to look the same. */
 const LEGACY_LIGHT_SCALE = Math.PI;
 
+/** The moon is a painted disc on the sky texture, placed by longitude and elevation like the stars. */
+function drawMoon(g: CanvasRenderingContext2D, W: number, H: number): void {
+  const lon = 0.62 * Math.PI * 2;
+  const elevation = 0.55 * (Math.PI / 2);
+  const x = (lon / (Math.PI * 2)) * W;
+  const y = H / 2 - (elevation / (Math.PI / 2)) * (H / 2);
+  const radius = 44;
+  const halo = g.createRadialGradient(x, y, radius * 0.7, x, y, radius * 6);
+  halo.addColorStop(0, 'rgba(206,222,255,0.32)');
+  halo.addColorStop(1, 'rgba(206,222,255,0)');
+  g.fillStyle = halo;
+  g.beginPath();
+  g.arc(x, y, radius * 6, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#e9efff';
+  g.beginPath();
+  g.arc(x, y, radius, 0, Math.PI * 2);
+  g.fill();
+}
+
 function createSkyTexture(preset: AtmospherePreset): THREE.CanvasTexture {
   const W = 4096;
   const H = 2048;
@@ -29,6 +49,7 @@ function createSkyTexture(preset: AtmospherePreset): THREE.CanvasTexture {
       g.fillStyle = `rgba(255,255,255,${0.35 + rng() * 0.65})`;
       g.fillRect((lon / (Math.PI * 2)) * W - width / 2, H / 2 - (elevation / (Math.PI / 2)) * (H / 2), width, size);
     }
+    drawMoon(g, W, H);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
