@@ -4,9 +4,9 @@ import type { FireworkSim } from '../models/fireworks';
 
 /** A rocket is a speck next to a burst; sizes are in world units. */
 const MAX_ROCKETS = 64;
-const BODY_RADIUS = 11;
-const BODY_LENGTH = 72;
-const NOSE_LENGTH = 28;
+const BODY_RADIUS = 1.1;
+const BODY_LENGTH = 7.2;
+const NOSE_LENGTH = 2.8;
 const PLUME_LENGTH = 9;
 
 const merged = (parts: THREE.BufferGeometry[]): THREE.BufferGeometry =>
