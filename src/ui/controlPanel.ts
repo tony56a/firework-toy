@@ -59,6 +59,7 @@ export class ControlPanel extends Emitter<PanelActions> {
       this.button('Launch fireworks', 'launch'),
       this.autoLaunchButton(),
       this.slider('Auto-launch interval (s)', 'autoLaunchInterval', 0.5, 5, 0.1),
+      this.checkbox('Show rockets', 'showRockets'),
       this.checkbox('Microphone (clap to fire)', 'micEnabled'),
       this.slider('Clap sensitivity', 'clapSensitivity', 1, 10, 1),
       this.select('Detector', 'detectorMode', [['level', 'Level only'], ['spectral', 'Spectral (FFT)'], ['classifier', 'Classifier (YAMNet)']]),

@@ -18,6 +18,7 @@ export interface AppState {
   heightRange: number;
   autoLaunch: boolean;
   autoLaunchInterval: number;
+  showRockets: boolean;
   micEnabled: boolean;
   clapSensitivity: number;
   detectorMode: DetectorMode;
@@ -36,6 +37,7 @@ export const DEFAULT_STATE: AppState = {
   heightRange: 75,
   autoLaunch: false,
   autoLaunchInterval: 1.5,
+  showRockets: true,
   micEnabled: false,
   clapSensitivity: 7,
   detectorMode: 'spectral',

@@ -95,6 +95,7 @@ export class App {
       this.launch(5);
     }
     if (has('autoLaunch') && !state.autoLaunch) this.autoTimer = 0;
+    if (has('showRockets')) this.rocketView.setVisible(state.showRockets);
   }
 
   private rebuildTrees(state: Readonly<AppState>): void {

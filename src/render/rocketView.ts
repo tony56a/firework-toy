@@ -7,7 +7,7 @@ const MAX_ROCKETS = 64;
 const BODY_RADIUS = 1.1;
 const BODY_LENGTH = 7.2;
 const NOSE_LENGTH = 2.8;
-const PLUME_LENGTH = 9;
+const PLUME_LENGTH = 0.9;
 
 const merged = (parts: THREE.BufferGeometry[]): THREE.BufferGeometry =>
   mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)))!;
@@ -88,6 +88,12 @@ export class RocketView {
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
+  }
+
+  /** Hides the rocket meshes without detaching them, so `sync` can keep running unchanged. */
+  setVisible(visible: boolean): void {
+    this.bodies.visible = visible;
+    this.plumes.visible = visible;
   }
 
   dispose(): void {
