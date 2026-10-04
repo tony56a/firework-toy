@@ -34,7 +34,7 @@ src/
                         clapInput.ts (facade the app talks to)
   render/    three.js only. Views take models and draw them.
     sceneRenderer.ts  atmosphere.ts  terrainView.ts  treeView.ts
-    fireworksView.ts  camera/rig.ts
+    fireworksView.ts  rocketView.ts  camera/rig.ts
   ui/        controlPanel.ts builds the DOM from the store; styles.css
   app.ts     composition root: wires everything, owns the frame loop
   main.ts    entry point

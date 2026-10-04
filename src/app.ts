@@ -11,6 +11,7 @@ import { scatterTrees } from './models/trees';
 import { Atmosphere } from './render/atmosphere';
 import { CameraRig } from './render/camera/rig';
 import { FireworksView } from './render/fireworksView';
+import { RocketView } from './render/rocketView';
 import { SceneRenderer } from './render/sceneRenderer';
 import { TerrainView } from './render/terrainView';
 import { TreeView } from './render/treeView';
@@ -29,6 +30,7 @@ export class App {
   private readonly treeView: TreeView;
   private readonly sim = new FireworkSim();
   private readonly fireworksView: FireworksView;
+  private readonly rocketView: RocketView;
   private readonly pointer: PointerInput;
   private readonly clap = new ClapInput();
   private readonly panel: ControlPanel;
@@ -42,6 +44,7 @@ export class App {
     this.terrainView = new TerrainView(this.view.scene);
     this.treeView = new TreeView(this.view.scene);
     this.fireworksView = new FireworksView(this.view.scene, this.sim);
+    this.rocketView = new RocketView(this.view.scene, this.sim);
     this.pointer = new PointerInput(canvas);
     this.panel = new ControlPanel(uiRoot, this.store);
     this.terrain = new Terrain(this.store.get().seed);
@@ -132,6 +135,7 @@ export class App {
     this.rig.update(dt, this.terrain);
     this.atmosphere.follow(this.rig.camera);
     this.sim.step(dt);
+    this.rocketView.sync();
     this.fireworksView.sync();
     this.clap.tick(now);
     this.view.render(this.rig.camera);

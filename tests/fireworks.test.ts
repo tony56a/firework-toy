@@ -22,6 +22,22 @@ test('a volley schedules shells, launches them, and they burst', () => {
   assert.ok(sim.liveParticles() > 0, 'bursts should leave live particles');
 });
 
+test('rockets in flight are exposed for rendering and disappear when they burst', () => {
+  const sim = new FireworkSim(mulberry32(4));
+  sim.launchVolley(volley(2));
+  assert.equal(sim.rocketStates.length, 0);
+  run(sim, 1);
+  const seen = sim.rocketStates;
+  assert.ok(seen.length > 0, 'a rising rocket should be visible to views');
+  for (const r of seen) {
+    assert.ok(Number.isFinite(r.x) && Number.isFinite(r.y) && Number.isFinite(r.z));
+    assert.ok(r.vy > 0, 'rockets climb before they burst');
+    assert.ok(r.primary.every((c) => c >= 0 && c <= 1));
+  }
+  run(sim, 8);
+  assert.equal(sim.rocketStates.length, 0);
+});
+
 test('everything fades out eventually', () => {
   const sim = new FireworkSim(mulberry32(2));
   sim.launchVolley(volley(3));

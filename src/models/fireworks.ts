@@ -24,6 +24,9 @@ export const MAX_PARTICLES = 9000;
 interface Rocket { x: number; y: number; z: number; vx: number; vy: number; vz: number; primary: RGB; secondary: RGB; palette: Palette; effect: Effect }
 interface Scheduled { t: number; run: () => void }
 
+/** What a view needs to draw a rocket: where it is, where it is going, and what color it burns. */
+export type RocketState = Pick<Rocket, 'x' | 'y' | 'z' | 'vx' | 'vy' | 'vz' | 'primary' | 'secondary' | 'effect'>;
+
 /**
  * Particle simulation with no rendering dependencies. Positions and colors live in typed arrays
  * that a view can upload directly; dead particles are drawn black (additive blending hides them).
@@ -48,6 +51,8 @@ export class FireworkSim {
 
   get activeRockets(): number { return this.rockets.length; }
   get pendingLaunches(): number { return this.scheduled.length; }
+  /** Read-only view of the rockets in flight, in launch order. */
+  get rocketStates(): ReadonlyArray<RocketState> { return this.rockets; }
 
   liveParticles(): number {
     let n = 0;
