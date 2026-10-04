@@ -57,6 +57,8 @@ export class ControlPanel extends Emitter<PanelActions> {
       this.slider('Firework distance', 'fireworkDistance', 20, 120, 5),
       this.paletteField(),
       this.button('Launch fireworks', 'launch'),
+      this.autoLaunchButton(),
+      this.slider('Auto-launch interval (s)', 'autoLaunchInterval', 0.5, 5, 0.1),
       this.checkbox('Microphone (clap to fire)', 'micEnabled'),
       this.slider('Clap sensitivity', 'clapSensitivity', 1, 10, 1),
       this.select('Detector', 'detectorMode', [['level', 'Level only'], ['spectral', 'Spectral (FFT)'], ['classifier', 'Classifier (YAMNet)']]),
@@ -136,6 +138,19 @@ export class ControlPanel extends Emitter<PanelActions> {
   private button(label: string, action: 'launch' | 'calibrate' | 'randomize', ghost = false): HTMLElement {
     const b = el('button', { textContent: label, className: ghost ? 'ghost' : '' });
     b.onclick = () => this.emit(action, undefined);
+    return b;
+  }
+
+  /** Toggle button bound to `autoLaunch`. Label and active style follow the store. */
+  private autoLaunchButton(): HTMLElement {
+    const b = el('button', { textContent: 'Start continuous fireworks' });
+    b.setAttribute('aria-pressed', 'false');
+    b.onclick = () => this.store.set({ autoLaunch: !this.store.get().autoLaunch });
+    this.syncs.push((s) => {
+      b.textContent = s.autoLaunch ? 'Stop continuous fireworks' : 'Start continuous fireworks';
+      b.classList.toggle('on', s.autoLaunch);
+      b.setAttribute('aria-pressed', String(s.autoLaunch));
+    });
     return b;
   }
 

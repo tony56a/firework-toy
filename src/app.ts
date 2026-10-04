@@ -34,6 +34,7 @@ export class App {
   private readonly panel: ControlPanel;
   private terrain: Terrain;
   private lastFrame = 0;
+  private autoTimer = 0;
 
   constructor(canvas: HTMLCanvasElement, uiRoot: HTMLElement) {
     this.view = new SceneRenderer(canvas);
@@ -85,6 +86,12 @@ export class App {
     if (has('micEnabled')) {
       void this.clap.setEnabled(state.micEnabled).then((actual) => this.store.set({ micEnabled: actual }));
     }
+    if (has('autoLaunch') && state.autoLaunch) {
+      // Fire immediately so the toggle feels responsive, then keep a steady cadence in frame().
+      this.autoTimer = 0;
+      this.launch(5);
+    }
+    if (has('autoLaunch') && !state.autoLaunch) this.autoTimer = 0;
   }
 
   private rebuildTrees(state: Readonly<AppState>): void {
@@ -114,6 +121,14 @@ export class App {
   private frame = (now: number): void => {
     const dt = Math.min(0.1, (now - this.lastFrame) / 1000);
     this.lastFrame = now;
+    const s = this.store.get();
+    if (s.autoLaunch) {
+      this.autoTimer += dt;
+      if (this.autoTimer >= Math.max(0.1, s.autoLaunchInterval)) {
+        this.autoTimer = 0;
+        this.launch(5);
+      }
+    }
     this.rig.update(dt, this.terrain);
     this.atmosphere.follow(this.rig.camera);
     this.sim.step(dt);

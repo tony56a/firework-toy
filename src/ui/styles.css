@@ -27,6 +27,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .panel input[type="range"] { accent-color: var(--accent); }
 .panel button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px; font-weight: 600; cursor: pointer; }
 .panel button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--accent); font-weight: 500; }
+.panel button.on { outline: 2px solid currentColor; outline-offset: -2px; }
 .panel .cameras { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .panel .cameras button { background: transparent; color: var(--ink); border: 1px solid var(--accent); font-weight: 500; padding: 6px 4px; font-size: 12px; }
 .panel .cameras button.on { background: var(--accent); color: #fff; }

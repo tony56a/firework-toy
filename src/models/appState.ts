@@ -16,6 +16,8 @@ export interface AppState {
   fireworkPalette: PaletteId;
   horizontalRange: number;
   heightRange: number;
+  autoLaunch: boolean;
+  autoLaunchInterval: number;
   micEnabled: boolean;
   clapSensitivity: number;
   detectorMode: DetectorMode;
@@ -32,6 +34,8 @@ export const DEFAULT_STATE: AppState = {
   fireworkPalette: 'rainbow',
   horizontalRange: 20,
   heightRange: 75,
+  autoLaunch: false,
+  autoLaunchInterval: 1.5,
   micEnabled: false,
   clapSensitivity: 7,
   detectorMode: 'spectral',
