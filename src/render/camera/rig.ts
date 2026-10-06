@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CAMERA_MODES, type CameraMode } from '../../models/cameraModes';
-import type { Terrain } from '../../models/terrain';
+import type { Ground } from '../../models/ground';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -50,15 +50,15 @@ export class CameraRig {
     if (this.mode === 'orbit') this.orbit.radius = THREE.MathUtils.clamp(this.orbit.radius * factor, 8, 200);
   }
 
-  update(dt: number, terrain: Terrain): void {
+  update(dt: number, ground: Ground): void {
     if (this.ambient) this.motionTime += dt;
     this.camera.up.copy(UP);
     switch (this.mode) {
-      case 'orbit': return this.updateOrbit(dt, terrain);
-      case 'ground': return this.updateGround(dt, terrain);
-      case 'plane': return this.updatePlane(terrain);
+      case 'orbit': return this.updateOrbit(dt, ground);
+      case 'ground': return this.updateGround(dt, ground);
+      case 'plane': return this.updatePlane(ground);
       case 'overhead': return this.updateOverhead();
-      case 'ridge': return this.updateRidge(terrain);
+      case 'ridge': return this.updateRidge(ground);
     }
   }
 
@@ -71,31 +71,31 @@ export class CameraRig {
     return { x: x / length, z: z / length };
   }
 
-  private updateOrbit(dt: number, terrain: Terrain): void {
+  private updateOrbit(dt: number, ground: Ground): void {
     const o = this.orbit;
     if (this.autoMotion && this.ambient) o.theta += 0.09 * dt;
-    const target = terrain.heightAt(0, 0) + 2;
+    const target = ground.heightAt(0, 0) + 2;
     const x = o.radius * Math.sin(o.phi) * Math.sin(o.theta);
     const z = o.radius * Math.sin(o.phi) * Math.cos(o.theta);
-    this.camera.position.set(x, Math.max(target + o.radius * Math.cos(o.phi), terrain.heightAt(x, z) + 3), z);
+    this.camera.position.set(x, Math.max(target + o.radius * Math.cos(o.phi), ground.heightAt(x, z) + 3), z);
     this.camera.lookAt(0, target, 0);
   }
 
-  private updateGround(dt: number, terrain: Terrain): void {
+  private updateGround(dt: number, ground: Ground): void {
     if (this.autoMotion && this.ambient) this.look.yaw += 0.072 * dt;
-    const y = terrain.heightAt(0, 0) + 1.2;
+    const y = ground.heightAt(0, 0) + 1.2;
     const c = Math.cos(this.look.pitch);
     this.camera.position.set(0, y, 0);
     this.camera.lookAt(Math.sin(this.look.yaw) * c * 10, y + Math.sin(this.look.pitch) * 10, Math.cos(this.look.yaw) * c * 10);
   }
 
-  private updatePlane(terrain: Terrain): void {
+  private updatePlane(ground: Ground): void {
     const t = this.motionTime;
     const R = 75;
     const a = t * 0.06;
     const px = R * Math.cos(a);
     const pz = R * Math.sin(a);
-    const py = Math.max(50, terrain.heightAt(px, pz) + 30) + Math.sin(t * 0.3) * 3;
+    const py = Math.max(50, ground.heightAt(px, pz) + 30) + Math.sin(t * 0.3) * 3;
     this.camera.position.set(px, py, pz);
     const target = this.scratch.set(R * 0.85 * Math.cos(a + 0.25), 6, R * 0.85 * Math.sin(a + 0.25));
     this.forward.copy(target).sub(this.camera.position).normalize();
@@ -110,10 +110,10 @@ export class CameraRig {
     this.camera.lookAt(0, 0, 0);
   }
 
-  private updateRidge(terrain: Terrain): void {
+  private updateRidge(ground: Ground): void {
     const x = -70 + Math.sin(this.motionTime * 0.1) * 8;
     const z = 70;
-    this.camera.position.set(x, terrain.heightAt(x, z) + 14, z);
-    this.camera.lookAt(0, terrain.heightAt(0, 0) + 4, 0);
+    this.camera.position.set(x, ground.heightAt(x, z) + 14, z);
+    this.camera.lookAt(0, ground.heightAt(0, 0) + 4, 0);
   }
 }
