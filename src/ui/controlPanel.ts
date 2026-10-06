@@ -16,6 +16,8 @@ export interface PanelActions {
 type NumericKey = { [K in keyof AppState]: AppState[K] extends number ? K : never }[keyof AppState];
 type BooleanKey = { [K in keyof AppState]: AppState[K] extends boolean ? K : never }[keyof AppState];
 
+const DRAG_MARGIN = 8;
+
 const MINIMIZE_ICON = '<svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 const MENU_ICON = '<svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
 
@@ -34,6 +36,8 @@ function el<K extends keyof HTMLElementTagNameMap>(
  */
 export class ControlPanel extends Emitter<PanelActions> {
   private readonly syncs: Array<(state: Readonly<AppState>) => void> = [];
+  private readonly tabButtons = new Map<string, HTMLElement>();
+  private readonly tabPanels = new Map<string, HTMLElement>();
   private readonly treeStats = el('div', { className: 'muted' });
   private readonly micStatus = el('div', { className: 'muted', textContent: 'Mic off' });
   private readonly meter = el('div', { className: 'meter' }, el('i'));
@@ -45,36 +49,139 @@ export class ControlPanel extends Emitter<PanelActions> {
     hide.onclick = () => store.set({ menuVisible: false });
     restore.onclick = () => store.set({ menuVisible: true });
 
-    const panel = el('div', { className: 'panel' },
-      el('div', { className: 'titlebar' }, el('span', { textContent: 'Controls' }), hide),
-      this.seedField(),
-      this.slider('Trees', 'treeCount', 0, MAX_TREES, 50),
-      this.cameraButtons(),
-      this.select('Time of day', 'timeOfDay', TIME_IDS.map((id) => [id, TIME_PRESETS[id].label])),
-      this.checkbox('Ambient movement', 'ambientMotion'),
-      this.slider('Horizontal range (x)', 'horizontalRange', 0, 100, 5),
-      this.slider('Height range (y)', 'heightRange', 30, 150, 5),
-      this.slider('Firework distance', 'fireworkDistance', 20, 120, 5),
-      this.paletteField(),
-      this.button('Launch fireworks', 'launch'),
-      this.autoLaunchButton(),
-      this.slider('Auto-launch interval (s)', 'autoLaunchInterval', 0.5, 5, 0.1),
-      this.checkbox('Show rockets', 'showRockets'),
-      this.checkbox('Microphone (clap to fire)', 'micEnabled'),
-      this.slider('Clap sensitivity', 'clapSensitivity', 1, 10, 1),
-      this.select('Detector', 'detectorMode', [['level', 'Level only'], ['spectral', 'Spectral (FFT)'], ['classifier', 'Classifier (YAMNet)']]),
-      this.classifierRow(),
-      this.button('Calibrate noise (2 s)', 'calibrate', true),
-      this.meter,
-      this.micStatus,
-      this.button('Randomize', 'randomize'),
-      this.treeStats,
-    );
+    const titlebar = el('div', { className: 'titlebar' }, el('span', { textContent: 'Controls' }), hide);
+    const tabDefs: ReadonlyArray<{ id: string; label: string; fields: ReadonlyArray<HTMLElement> }> = [
+      { id: 'scene', label: 'Scene', fields: [
+        this.seedField(),
+        this.slider('Trees', 'treeCount', 0, MAX_TREES, 50),
+        this.select('Time of day', 'timeOfDay', TIME_IDS.map((id) => [id, TIME_PRESETS[id].label])),
+        this.checkbox('Ambient movement', 'ambientMotion'),
+        this.slider('Horizontal range (x)', 'horizontalRange', 0, 100, 5),
+        this.slider('Height range (y)', 'heightRange', 30, 150, 5),
+        this.button('Randomize', 'randomize'),
+        this.treeStats,
+      ] },
+      { id: 'camera', label: 'Camera', fields: [
+        this.cameraButtons(),
+        this.slider('Firework distance', 'fireworkDistance', 20, 120, 5),
+      ] },
+      { id: 'fireworks', label: 'Fireworks', fields: [
+        this.paletteField(),
+        this.button('Launch fireworks', 'launch'),
+        this.autoLaunchButton(),
+        this.slider('Auto-launch interval (s)', 'autoLaunchInterval', 0.5, 5, 0.1),
+        this.checkbox('Show rockets', 'showRockets'),
+      ] },
+      { id: 'audio', label: 'Audio', fields: [
+        this.checkbox('Microphone (clap to fire)', 'micEnabled'),
+        this.slider('Clap sensitivity', 'clapSensitivity', 1, 10, 1),
+        this.select('Detector', 'detectorMode', [['level', 'Level only'], ['spectral', 'Spectral (FFT)'], ['classifier', 'Classifier (YAMNet)']]),
+        this.classifierRow(),
+        this.button('Calibrate noise (2 s)', 'calibrate', true),
+        this.meter,
+        this.micStatus,
+      ] },
+    ];
+
+    const tabs = el('div', { className: 'tabs', role: 'tablist' });
+    const bodies = el('div', { className: 'tab-body' });
+    const panel = el('div', { className: 'panel' }, titlebar, tabs, bodies);
+    for (const def of tabDefs) {
+      const body = el('div', { className: 'tab-panel', role: 'tabpanel' }, ...def.fields);
+      const tab = el('button', { textContent: def.label, role: 'tab', title: def.label });
+      tab.onclick = () => { this.showTab(def.id); this.clampIntoView(panel); };
+      this.tabButtons.set(def.id, tab);
+      this.tabPanels.set(def.id, body);
+      tabs.append(tab);
+      bodies.append(body);
+    }
+
     root.append(panel, restore);
 
     this.syncs.push((s) => { panel.hidden = !s.menuVisible; restore.hidden = s.menuVisible; });
     store.subscribe((s) => this.syncs.forEach((f) => f(s)));
     this.syncs.forEach((f) => f(store.get()));
+
+    this.showTab(tabDefs[0].id);
+    this.makeDraggable(panel, titlebar);
+    window.addEventListener('resize', () => this.clampIntoView(panel));
+  }
+
+  /** Shows one tab's fields and hides the rest. */
+  private showTab(id: string): void {
+    for (const [key, body] of this.tabPanels) body.hidden = key !== id;
+    for (const [key, tab] of this.tabButtons) {
+      const on = key === id;
+      tab.classList.toggle('on', on);
+      tab.setAttribute('aria-selected', String(on));
+    }
+  }
+
+  /**
+   * Lets the titlebar drag the panel. Pointer capture keeps the drag alive when the
+   * pointer leaves the handle, and the panel is clamped so it stays on screen.
+   */
+  private makeDraggable(panel: HTMLElement, handle: HTMLElement): void {
+    let pointerId = -1;
+    let originX = 0;
+    let originY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
+      const rect = panel.getBoundingClientRect();
+      pointerId = e.pointerId;
+      originX = e.clientX;
+      originY = e.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      handle.setPointerCapture(e.pointerId);
+      handle.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    handle.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== pointerId) return;
+      const limits = this.dragLimits(panel);
+      const left = startLeft + (e.clientX - originX);
+      const top = startTop + (e.clientY - originY);
+      panel.style.left = `${Math.min(Math.max(left, limits.minLeft), limits.maxLeft)}px`;
+      panel.style.top = `${Math.min(Math.max(top, limits.minTop), limits.maxTop)}px`;
+    });
+
+    const end = (e: PointerEvent): void => {
+      if (e.pointerId !== pointerId) return;
+      if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
+      pointerId = -1;
+      handle.classList.remove('dragging');
+    };
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+  }
+
+  /** Re-pins the panel inside the viewport, used on resize and after tab switches. */
+  private clampIntoView(panel: HTMLElement): void {
+    const { left, top } = panel.getBoundingClientRect();
+    const limits = this.dragLimits(panel);
+    panel.style.left = `${Math.min(Math.max(left, limits.minLeft), limits.maxLeft)}px`;
+    panel.style.top = `${Math.min(Math.max(top, limits.minTop), limits.maxTop)}px`;
+  }
+
+  /** Allowed drag bounds: a margin off the viewport edges, inside the safe area. */
+  private dragLimits(panel: HTMLElement): { minLeft: number; minTop: number; maxLeft: number; maxTop: number } {
+    const { width, height } = panel.getBoundingClientRect();
+    const rootStyle = getComputedStyle(document.documentElement);
+    const insetTop = parseFloat(rootStyle.paddingTop) || 0;
+    const insetBottom = parseFloat(rootStyle.paddingBottom) || 0;
+    const minLeft = DRAG_MARGIN;
+    const minTop = insetTop + DRAG_MARGIN;
+    return {
+      minLeft,
+      minTop,
+      maxLeft: Math.max(minLeft, window.innerWidth - width - DRAG_MARGIN),
+      maxTop: Math.max(minTop, window.innerHeight - height - insetBottom - DRAG_MARGIN),
+    };
   }
 
   setTreeStats(text: string): void { this.treeStats.textContent = text; }
