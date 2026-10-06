@@ -1,6 +1,7 @@
 import { WORLD_SIZE } from '../config';
 import { createNoise, fbm, type Noise2D } from '../core/noise';
 import { clamp, rngFromSeed } from '../core/random';
+import type { Ground } from './ground';
 
 /** Blend factors describing the ground surface at a point. The renderer maps them to colors. */
 export interface GroundWeights {
@@ -11,7 +12,7 @@ export interface GroundWeights {
 }
 
 /** Pure, seeded description of the landscape: heights, forest density and surface mix. */
-export class Terrain {
+export class Terrain implements Ground {
   readonly size: number;
   private readonly heightNoise: Noise2D;
   private readonly colorNoise: Noise2D;
