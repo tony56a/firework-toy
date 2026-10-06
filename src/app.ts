@@ -92,7 +92,7 @@ export class App {
   }
 
   /**
-   * Builds the outgoing scene if needed and replays the whole state onto it, so a scene is never
+   * Builds the incoming scene if needed and replays the whole state onto it, so a scene is never
    * shown with settings that were changed while another one was active.
    */
   private swapScene(id: SceneId): void {
