@@ -4,6 +4,7 @@ import type { Store } from '../core/store';
 import type { AppState } from '../models/appState';
 import { CAMERA_MODES, CAMERA_MODE_IDS } from '../models/cameraModes';
 import { PALETTES, PALETTE_IDS, swatchColors } from '../models/fireworkPalettes';
+import { SCENES, SCENE_IDS, type SceneId } from '../models/scenes';
 import { TIME_IDS, TIME_PRESETS } from '../models/timeOfDay';
 
 export interface PanelActions {
@@ -15,6 +16,7 @@ export interface PanelActions {
 
 type NumericKey = { [K in keyof AppState]: AppState[K] extends number ? K : never }[keyof AppState];
 type BooleanKey = { [K in keyof AppState]: AppState[K] extends boolean ? K : never }[keyof AppState];
+type SelectableKey = 'timeOfDay' | 'detectorMode' | 'fireworkPalette' | 'sceneId';
 
 const DRAG_MARGIN = 8;
 
@@ -52,14 +54,15 @@ export class ControlPanel extends Emitter<PanelActions> {
     const titlebar = el('div', { className: 'titlebar' }, el('span', { textContent: 'Controls' }), hide);
     const tabDefs: ReadonlyArray<{ id: string; label: string; fields: ReadonlyArray<HTMLElement> }> = [
       { id: 'scene', label: 'Scene', fields: [
-        this.seedField(),
-        this.slider('Trees', 'treeCount', 0, MAX_TREES, 50),
+        this.select('Scene', 'sceneId', SCENE_IDS.map((id) => [id, SCENES[id].label])),
+        this.inScene('forest', this.seedField()),
+        this.inScene('forest', this.slider('Trees', 'treeCount', 0, MAX_TREES, 50)),
         this.select('Time of day', 'timeOfDay', TIME_IDS.map((id) => [id, TIME_PRESETS[id].label])),
         this.checkbox('Ambient movement', 'ambientMotion'),
-        this.slider('Horizontal range (x)', 'horizontalRange', 0, 100, 5),
-        this.slider('Height range (y)', 'heightRange', 30, 150, 5),
-        this.button('Randomize', 'randomize'),
-        this.treeStats,
+        this.inScene('forest', this.slider('Horizontal range (x)', 'horizontalRange', 0, 100, 5)),
+        this.inScene('forest', this.slider('Height range (y)', 'heightRange', 30, 150, 5)),
+        this.inScene('forest', this.button('Randomize', 'randomize')),
+        this.inScene('forest', this.treeStats),
       ] },
       { id: 'camera', label: 'Camera', fields: [
         this.cameraButtons(),
@@ -191,6 +194,12 @@ export class ControlPanel extends Emitter<PanelActions> {
     this.meter.classList.toggle('hit', hit);
   }
 
+  /** Hides a control that only means something in one scene, such as the seed in the sky. */
+  private inScene(scene: SceneId, node: HTMLElement): HTMLElement {
+    this.syncs.push((s) => { node.hidden = s.sceneId !== scene; });
+    return node;
+  }
+
   private seedField(): HTMLElement {
     const input = el('input', { type: 'text' });
     input.onchange = () => this.store.set({ seed: input.value.trim() || 'meadow' });
@@ -213,7 +222,7 @@ export class ControlPanel extends Emitter<PanelActions> {
     return el('label', { className: 'inline' }, input, label);
   }
 
-  private select(label: string, key: 'timeOfDay' | 'detectorMode' | 'fireworkPalette', options: ReadonlyArray<readonly [string, string]>): HTMLElement {
+  private select(label: string, key: SelectableKey, options: ReadonlyArray<readonly [string, string]>): HTMLElement {
     const select = el('select', {}, ...options.map(([value, text]) => el('option', { value, textContent: text })));
     select.onchange = () => this.store.set({ [key]: select.value } as Partial<AppState>);
     this.syncs.push((s) => { select.value = s[key]; });
