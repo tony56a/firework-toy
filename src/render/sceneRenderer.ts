@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 
-/** Owns the WebGL renderer and the scene graph root. Views attach their objects to `scene`. */
+/** Owns the WebGL renderer. Scenes own their own `THREE.Scene` and are handed in at render time. */
 export class SceneRenderer {
-  readonly scene = new THREE.Scene();
   private readonly renderer: THREE.WebGLRenderer;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -19,7 +18,8 @@ export class SceneRenderer {
     return w / h;
   }
 
-  render(camera: THREE.Camera): void {
-    this.renderer.render(this.scene, camera);
+  /** Draws whichever scene is active this frame. */
+  render(camera: THREE.Camera, scene: THREE.Scene): void {
+    this.renderer.render(scene, camera);
   }
 }
