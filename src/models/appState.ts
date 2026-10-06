@@ -26,7 +26,7 @@ export interface AppState {
 
 export const DEFAULT_STATE: AppState = {
   seed: 'meadow',
-  treeCount: 1200,
+  treeCount: 250,
   cameraMode: 'orbit',
   timeOfDay: 'night',
   ambientMotion: false,
