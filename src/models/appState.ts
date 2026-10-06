@@ -1,5 +1,6 @@
 import type { CameraMode } from './cameraModes';
 import type { PaletteId } from './fireworkPalettes';
+import type { SceneId } from './scenes';
 import type { TimeOfDay } from './timeOfDay';
 
 export type DetectorMode = 'level' | 'spectral' | 'classifier';
@@ -7,6 +8,7 @@ export type DetectorMode = 'level' | 'spectral' | 'classifier';
 /** Everything the user can change. The UI writes it, the app reacts to it. */
 export interface AppState {
   seed: string;
+  sceneId: SceneId;
   treeCount: number;
   cameraMode: CameraMode;
   timeOfDay: TimeOfDay;
@@ -26,6 +28,7 @@ export interface AppState {
 
 export const DEFAULT_STATE: AppState = {
   seed: 'meadow',
+  sceneId: 'forest',
   treeCount: 250,
   cameraMode: 'orbit',
   timeOfDay: 'night',
