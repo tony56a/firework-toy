@@ -19,6 +19,7 @@ node_modules
 !**/fixtures/config/native-compat/json-named-import-ok/node_modules
 playground-temp
 temp
+tmp-shots
 TODOs.md
 .eslintcache
 
