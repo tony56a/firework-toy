@@ -59,7 +59,7 @@ export const BUILDING_MAX_DEPTH = 11;
  */
 export const LAUNCH_HOLD = 0.9;
 export const LAUNCH_CLIMB = 3.4;
-export const LAUNCH_BURST_HEIGHT = 30;
+export const LAUNCH_BURST_HEIGHT = 60;
 /** How long the pad stays empty after a launch before the rocket is set up again. */
 export const LAUNCH_RESET = 2.6;
 /**
