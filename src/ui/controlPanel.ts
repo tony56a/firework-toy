@@ -38,7 +38,7 @@ function el<K extends keyof HTMLElementTagNameMap>(
  */
 export class ControlPanel extends Emitter<PanelActions> {
   private readonly syncs: Array<(state: Readonly<AppState>) => void> = [];
-  private readonly sceneTabs = new Map<SceneId, HTMLElement>();
+  private readonly sceneTabButtons = new Map<SceneId, HTMLElement>();
   private readonly groupButtons = new Map<string, HTMLElement>();
   private readonly groupPanels = new Map<string, HTMLElement>();
   private readonly treeStats = el('div', { className: 'muted' });
@@ -95,11 +95,11 @@ export class ControlPanel extends Emitter<PanelActions> {
     for (const id of SCENE_IDS) {
       const tab = el('button', { textContent: SCENES[id].label, role: 'tab', title: SCENES[id].label });
       tab.onclick = () => { this.store.set({ sceneId: id }); this.clampIntoView(panel); };
-      this.sceneTabs.set(id, tab);
+      this.sceneTabButtons.set(id, tab);
       sceneTabs.append(tab);
     }
     this.syncs.push((s) => {
-      for (const [id, tab] of this.sceneTabs) {
+      for (const [id, tab] of this.sceneTabButtons) {
         const on = id === s.sceneId;
         tab.classList.toggle('on', on);
         tab.setAttribute('aria-selected', String(on));
