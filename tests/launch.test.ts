@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { LAUNCH_BURST_HEIGHT, LAUNCH_CLIMB, LAUNCH_HOLD, PLUME_LENGTH, ROCKET_HEIGHT } from '../src/config';
+import {
+  CONCRETE_SIZE, LAUNCH_BURST_HEIGHT, LAUNCH_CLIMB, LAUNCH_HOLD, PAD_RADIUS, PLUME_LENGTH,
+  ROCKET_HEIGHT, SITE_VIEWER_Z, TOWER_OFFSET,
+} from '../src/config';
 import { launchFinished, launchState, LAUNCH_DURATION } from '../src/models/launch';
 
 test('nothing has happened before the button is pressed', () => {
@@ -92,4 +95,23 @@ test('the plume is a sensible length against the rocket', () => {
   // Too long and it reads as a firework, too short and the launch looks unpowered.
   assert.ok(PLUME_LENGTH > 1, 'there should be a visible plume');
   assert.ok(PLUME_LENGTH < ROCKET_HEIGHT, 'the plume should not be longer than the rocket');
+});
+
+test('a standing viewer is not standing inside the rocket', () => {
+  // The rocket occupies the origin, so an origin-centred viewpoint would be inside it. This is the
+  // sort of thing that only shows up as a view from inside a cylinder.
+  // Widened to number, or TS folds the constant and rules the comparison unreachable.
+  const viewerZ: number = SITE_VIEWER_Z;
+  assert.ok(viewerZ !== 0, 'the viewer must be moved off the origin');
+  assert.ok(
+    Math.abs(SITE_VIEWER_Z) > PAD_RADIUS,
+    'the viewer should stand clear of the apron, not on it',
+  );
+  assert.ok(Math.abs(SITE_VIEWER_Z) < CONCRETE_SIZE / 2 - 2, 'the viewer must still be on the slab');
+});
+
+test('the viewer stands opposite the tower, so the rocket is in front of it', () => {
+  const viewerZ: number = SITE_VIEWER_Z;
+  const towerZ: number = TOWER_OFFSET;
+  assert.ok(Math.sign(viewerZ) !== Math.sign(towerZ), 'tower and viewer are on the same side');
 });

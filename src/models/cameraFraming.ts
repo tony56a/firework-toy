@@ -8,6 +8,12 @@ export interface CameraFraming {
   radius: number;
   /** Height of the surface the viewer can stand on, above the ground. */
   surface: number;
+  /**
+   * Where a standing viewer is placed, in world XZ. Defaults to the origin, which suits a scene
+   * whose subject is not standing on it. A scene that puts something at the origin, such as a
+   * launch pad, sets this so the viewer is not inside it.
+   */
+  eye?: { x: number; z: number };
 }
 
 export interface CameraConstants {

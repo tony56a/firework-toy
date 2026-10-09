@@ -1,4 +1,4 @@
-import { CONCRETE_SIZE } from '../config';
+import { CONCRETE_SIZE, SITE_VIEWER_Z } from '../config';
 import type * as THREE from 'three';
 import type { AppState } from '../models/appState';
 import type { CameraFraming } from '../models/cameraFraming';
@@ -23,8 +23,15 @@ export class ConcreteScene extends SceneBase {
   private readonly rocket: RocketLaunchView;
   private site: SiteView;
 
-  /** The slab is the whole subject, and the viewer stands on it rather than on a table. */
-  readonly framing: CameraFraming = { radius: CONCRETE_SIZE / 2, surface: 0 };
+  /**
+   * The slab is the whole subject, and the viewer stands on it rather than on a table. They stand
+   * back from the pad, since the rocket occupies the origin and a viewer there would be inside it.
+   */
+  readonly framing: CameraFraming = {
+    radius: CONCRETE_SIZE / 2,
+    surface: 0,
+    eye: { x: 0, z: SITE_VIEWER_Z },
+  };
 
   constructor(sim: FireworkSim, report: SceneReport, seed: string) {
     super(sim, report);

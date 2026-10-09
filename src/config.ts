@@ -62,6 +62,12 @@ export const LAUNCH_CLIMB = 3.4;
 export const LAUNCH_BURST_HEIGHT = 30;
 /** How long the pad stays empty after a launch before the rocket is set up again. */
 export const LAUNCH_RESET = 2.6;
+/**
+ * Where a standing viewer is placed in the concrete scene. The rocket stands at the origin, so the
+ * default origin-centred viewpoint would put the viewer inside it. This is on the far side of the
+ * pad from the service tower, so looking at the pad puts the rocket in front with the tower behind.
+ */
+export const SITE_VIEWER_Z = -30;
 /** Peak engine plume length, and how fast it flickers. */
 export const PLUME_LENGTH = 7;
 export const PLUME_FLICKER = 18;

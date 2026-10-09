@@ -4,6 +4,7 @@ import { cameraConstants, type CameraConstants, type CameraFraming } from '../..
 import type { Ground } from '../../models/ground';
 
 const UP = new THREE.Vector3(0, 1, 0);
+const ORIGIN = { x: 0, z: 0 };
 
 /** Used until a scene says otherwise, and while one is being built. */
 const DEFAULT_FRAMING: CameraFraming = { radius: 90, surface: 0 };
@@ -104,11 +105,17 @@ export class CameraRig {
 
   private updateGround(dt: number, ground: Ground, k: CameraConstants): void {
     if (this.autoMotion && this.ambient) this.look.yaw += 0.072 * dt;
+    // Stand wherever this scene wants a viewer to be, which is not always the origin.
+    const eye = this.framing.eye ?? ORIGIN;
     // Sit on whichever surface is higher: the terrain, or the tabletop of a diorama.
-    const y = Math.max(ground.heightAt(0, 0), this.framing.surface) + k.eyeOffset;
+    const y = Math.max(ground.heightAt(eye.x, eye.z), this.framing.surface) + k.eyeOffset;
     const c = Math.cos(this.look.pitch);
-    this.camera.position.set(0, y, 0);
-    this.camera.lookAt(Math.sin(this.look.yaw) * c * 10, y + Math.sin(this.look.pitch) * 10, Math.cos(this.look.yaw) * c * 10);
+    this.camera.position.set(eye.x, y, eye.z);
+    this.camera.lookAt(
+      eye.x + Math.sin(this.look.yaw) * c * 10,
+      y + Math.sin(this.look.pitch) * 10,
+      eye.z + Math.cos(this.look.yaw) * c * 10,
+    );
   }
 
   private updatePlane(ground: Ground, k: CameraConstants): void {
