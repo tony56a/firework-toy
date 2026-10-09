@@ -55,12 +55,12 @@ export class ControlPanel extends Emitter<PanelActions> {
     const titlebar = el('div', { className: 'titlebar' }, el('span', { textContent: 'Controls' }), hide);
     const groupDefs: ReadonlyArray<{ id: string; label: string; fields: ReadonlyArray<HTMLElement> }> = [
       { id: 'world', label: 'World', fields: [
-        this.inScene('forest', this.seedField()),
+        this.inAnyScene(['forest', 'concrete'], this.seedField()),
         this.inScene('forest', this.slider('Trees', 'treeCount', 0, MAX_TREES, 50)),
         this.select('Time of day', 'timeOfDay', TIME_IDS.map((id) => [id, TIME_PRESETS[id].label])),
         this.checkbox('Ambient movement', 'ambientMotion'),
         this.inScene('sky', this.slider('Train speed', 'trainSpeed', 0, TRAIN_SPEED_MAX, 0.1)),
-        this.inScene('forest', this.button('Randomize', 'randomize')),
+        this.inAnyScene(['forest', 'concrete'], this.button('Randomize', 'randomize')),
         this.inScene('forest', this.treeStats),
       ] },
       { id: 'camera', label: 'Camera', fields: [
@@ -215,6 +215,12 @@ export class ControlPanel extends Emitter<PanelActions> {
   /** Hides a control that only means something in one scene, such as the seed in the sky. */
   private inScene(scene: SceneId, node: HTMLElement): HTMLElement {
     this.syncs.push((s) => { node.hidden = s.sceneId !== scene; });
+    return node;
+  }
+
+  /** Hides a control in every scene not listed, for controls shared by a few scenes. */
+  private inAnyScene(scenes: readonly SceneId[], node: HTMLElement): HTMLElement {
+    this.syncs.push((s) => { node.hidden = !scenes.includes(s.sceneId); });
     return node;
   }
 

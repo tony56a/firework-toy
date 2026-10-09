@@ -18,3 +18,10 @@ export const TRACK_RADIUS = 9;
 export const MODEL_SPACING = 11;
 export const TRAIN_SPEED_MAX = 3;
 export const TRAIN_SPEED_DEFAULT = 1;
+
+// The concrete pad in the third scene: a flat slab cast as a grid of panels.
+export const CONCRETE_SIZE = 130;
+export const CONCRETE_THICKNESS = 2;
+/** Side length of one cast panel, which sets where the expansion joints fall. */
+export const CONCRETE_PANEL = 13;
+export const CONCRETE_JOINT_WIDTH = 0.55;
