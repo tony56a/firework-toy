@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { MODEL_SPACING, TABLE_DEPTH, TABLE_WIDTH, TRACK_INSET } from '../src/config';
+import { MODEL_SPACING, TABLE_DEPTH, TABLE_HEIGHT, TABLE_LEG_HEIGHT, TABLE_LEG_INSET, TABLE_TOP_THICKNESS, TABLE_WIDTH, TRACK_INSET } from '../src/config';
 import { MODEL_KINDS } from '../src/models/modelKinds';
-import { TABLE_MODELS, TRACK_BOUNDS, tableLayout } from '../src/models/tableModels';
+import { TABLE_MODELS, TRACK_BOUNDS, tableLayout, tableLegPositions } from '../src/models/tableModels';
 
 test('models are spread evenly and centred on the table', () => {
   const spots = tableLayout(4);
@@ -45,4 +45,31 @@ test('the catalogue only names models the renderer can build', () => {
     assert.ok(model.label.length > 0);
     assert.ok(model.scale > 0);
   }
+});
+
+test('there is a leg at each corner of the table', () => {
+  const legs = tableLegPositions();
+  assert.equal(legs.length, 4);
+  const signs = legs.map((l) => `${Math.sign(l.x)},${Math.sign(l.z)}`).sort();
+  assert.deepEqual(signs, ['-1,-1', '-1,1', '1,-1', '1,1']);
+  for (const leg of legs) assert.ok(leg.x !== 0 && leg.z !== 0);
+});
+
+test('every leg is set in from the border and still under the slab', () => {
+  const size = TABLE_LEG_HEIGHT;
+  const legs = tableLegPositions();
+  for (const leg of legs) {
+    // Nearest edge of the leg cube, not its centre, so the whole cube is tucked in.
+    assert.ok(Math.abs(leg.x) + size / 2 <= TABLE_WIDTH / 2 + 1e-9, 'leg hangs off the side');
+    assert.ok(Math.abs(leg.z) + size / 2 <= TABLE_DEPTH / 2 + 1e-9, 'leg hangs off the end');
+    const insetX = TABLE_WIDTH / 2 - (Math.abs(leg.x) + size / 2);
+    const insetZ = TABLE_DEPTH / 2 - (Math.abs(leg.z) + size / 2);
+    assert.ok(insetX >= TABLE_LEG_INSET - 1e-9, `only inset ${insetX} from the side`);
+    assert.ok(insetZ >= TABLE_LEG_INSET - 1e-9, `only inset ${insetZ} from the end`);
+  }
+});
+
+test('the legs are cubes that reach the underside of the slab', () => {
+  assert.ok(TABLE_LEG_HEIGHT > 1, 'legs too thin to read as cubes');
+  assert.ok(Math.abs(TABLE_LEG_HEIGHT - (TABLE_HEIGHT - TABLE_TOP_THICKNESS)) < 1e-9, 'legs must fill the gap under the slab');
 });

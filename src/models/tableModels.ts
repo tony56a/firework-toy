@@ -1,4 +1,4 @@
-import { MODEL_SPACING, TABLE_DEPTH, TABLE_WIDTH, TRACK_INSET } from '../config';
+import { MODEL_SPACING, TABLE_DEPTH, TABLE_LEG_HEIGHT, TABLE_LEG_INSET, TABLE_WIDTH, TRACK_INSET } from '../config';
 import type { ModelKind } from './modelKinds';
 
 /**
@@ -39,3 +39,17 @@ export const TRACK_BOUNDS = {
   width: TABLE_WIDTH - 2 * TRACK_INSET,
   depth: TABLE_DEPTH - 2 * TRACK_INSET,
 };
+
+/**
+ * Where the table's legs stand: one cube at each corner, tucked under the slab and set in from
+ * the border by `inset` so the slab visibly overhangs them. Legs are cubes of side `legSize`,
+ * which keeps them from reading as thin sticks under a wide top.
+ */
+export function tableLegPositions(
+  legSize: number = TABLE_LEG_HEIGHT,
+  inset: number = TABLE_LEG_INSET,
+): ReadonlyArray<TableSpot> {
+  const x = TABLE_WIDTH / 2 - inset - legSize / 2;
+  const z = TABLE_DEPTH / 2 - inset - legSize / 2;
+  return [{ x: -x, z: -z }, { x, z: -z }, { x, z }, { x: -x, z }];
+}

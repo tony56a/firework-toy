@@ -1,25 +1,22 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  TABLE_DEPTH, TABLE_HEIGHT, TABLE_LEG_THICKNESS, TABLE_TOP_THICKNESS, TABLE_WIDTH,
+  TABLE_DEPTH, TABLE_HEIGHT, TABLE_LEG_HEIGHT, TABLE_TOP_THICKNESS, TABLE_WIDTH,
 } from '../config';
 import { MODEL_KINDS } from '../models/modelKinds';
-import { tableLayout, type TableModel } from '../models/tableModels';
+import { tableLayout, tableLegPositions, type TableModel } from '../models/tableModels';
 import { LEAF_MATERIAL, TRUNK_MATERIAL, modelGeometry, modelLeafColor } from './modelGeometry';
 
 const TOP_COLOR = 0x7a5c3e;
 const LEG_COLOR = 0x5d4630;
 const TOP_Y = TABLE_HEIGHT - TABLE_TOP_THICKNESS / 2; // centre of the slab
-const LEG_HEIGHT = TABLE_HEIGHT - TABLE_TOP_THICKNESS;
 
-/** The tabletop slab, plus a leg at each corner. Returns two groups so the legs can be darker. */
+/** The tabletop slab, plus a cube leg at each corner. Returns two groups so the legs can be darker. */
 function tableGeometry(): THREE.BufferGeometry {
   const slab = new THREE.BoxGeometry(TABLE_WIDTH, TABLE_TOP_THICKNESS, TABLE_DEPTH).translate(0, TOP_Y, 0);
-  const insetX = TABLE_WIDTH / 2 - TABLE_LEG_THICKNESS * 1.5;
-  const insetZ = TABLE_DEPTH / 2 - TABLE_LEG_THICKNESS * 1.5;
-  const legs = [[-insetX, -insetZ], [insetX, -insetZ], [insetX, insetZ], [-insetX, insetZ]].map(([x, z]) =>
-    new THREE.BoxGeometry(TABLE_LEG_THICKNESS, LEG_HEIGHT, TABLE_LEG_THICKNESS)
-      .translate(x, LEG_HEIGHT / 2, z));
+  const legs = tableLegPositions().map(({ x, z }) =>
+    new THREE.BoxGeometry(TABLE_LEG_HEIGHT, TABLE_LEG_HEIGHT, TABLE_LEG_HEIGHT)
+      .translate(x, TABLE_LEG_HEIGHT / 2, z));
   return mergeGeometries(
     [slab, ...legs].map((g) => (g.index ? g.toNonIndexed() : g)),
     true,
