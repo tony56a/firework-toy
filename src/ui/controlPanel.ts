@@ -4,6 +4,7 @@ import type { Store } from '../core/store';
 import type { AppState } from '../models/appState';
 import { CAMERA_MODES, CAMERA_MODE_IDS } from '../models/cameraModes';
 import { PALETTES, PALETTE_IDS, swatchColors } from '../models/fireworkPalettes';
+import { LANGUAGE_IDS, LANGUAGE_LABELS } from '../models/countdownPhrases';
 import { SCENES, SCENE_IDS, type SceneId } from '../models/scenes';
 import { TIME_IDS, TIME_PRESETS } from '../models/timeOfDay';
 
@@ -17,7 +18,7 @@ export interface PanelActions {
 
 type NumericKey = { [K in keyof AppState]: AppState[K] extends number ? K : never }[keyof AppState];
 type BooleanKey = { [K in keyof AppState]: AppState[K] extends boolean ? K : never }[keyof AppState];
-type SelectableKey = 'timeOfDay' | 'detectorMode' | 'fireworkPalette';
+type SelectableKey = 'timeOfDay' | 'detectorMode' | 'fireworkPalette' | 'countDownLanguage';
 
 const DRAG_MARGIN = 8;
 
@@ -63,6 +64,11 @@ export class ControlPanel extends Emitter<PanelActions> {
         this.inScene('sky', this.slider('Train speed', 'trainSpeed', 0, TRAIN_SPEED_MAX, 0.1)),
         this.inAnyScene(['forest', 'concrete'], this.button('Randomize', 'randomize')),
         this.inScene('concrete', this.button('Launch rocket', 'launchRocket')),
+        this.inScene('concrete', this.select(
+          'Countdown language',
+          'countDownLanguage',
+          LANGUAGE_IDS.map((id) => [id, LANGUAGE_LABELS[id]]),
+        )),
         this.inScene('forest', this.treeStats),
       ] },
       { id: 'camera', label: 'Camera', fields: [

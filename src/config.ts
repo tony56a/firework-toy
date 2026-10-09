@@ -68,6 +68,9 @@ export const LAUNCH_RESET = 2.6;
  * pad from the service tower, so looking at the pad puts the rocket in front with the tower behind.
  */
 export const SITE_VIEWER_Z = -30;
+/** Seconds between spoken numbers in the launch countdown. */
+export const COUNTDOWN_TICK = 1.1;
+
 /** Peak engine plume length, and how fast it flickers. */
 export const PLUME_LENGTH = 7;
 export const PLUME_FLICKER = 18;

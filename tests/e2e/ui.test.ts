@@ -122,14 +122,60 @@ test('launching the rocket takes it off the pad and puts it back', async () => {
 
     const onPad = await frame(page);
     await button.click();
-    // Hold is 0.9s then the climb starts, so 2.5s in the rocket is well clear of the pad.
-    await page.waitForTimeout(2500);
+    // The spoken count is 3 x 1.1s, then hold 0.9s before the climb starts, so wait past all of
+    // that: at 5.5s the rocket is well clear of the pad.
+    await page.waitForTimeout(5500);
     const inFlight = await frame(page);
     assert.notDeepEqual(inFlight, onPad, 'the frame should change while the rocket climbs');
 
-    // Hold + climb + reset is about 7s, after which the pad is ready again.
-    await page.waitForTimeout(6000);
+    // Count + hold + climb + reset is about 10.5s, after which the pad is ready again.
+    await page.waitForTimeout(7000);
     const reset = await frame(page);
     assert.notDeepEqual(reset, inFlight, 'the burst should have changed the frame');
+  });
+});
+
+test('the launch is counted down aloud before it fires', async () => {
+  await withPage(async (page) => {
+    // Record what the app asks the speech API to say, without needing audio output.
+    await page.evaluate(() => {
+      const w = window as unknown as { __spoken: string[] };
+      w.__spoken = [];
+      const synth = window.speechSynthesis;
+      const original = synth.speak.bind(synth);
+      synth.speak = (utterance: SpeechSynthesisUtterance) => {
+        w.__spoken.push(utterance.text);
+        original(utterance);
+      };
+    });
+
+    await page.getByRole('tab', { name: SCENES.concrete.label }).click();
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: 'Launch rocket' }).click();
+    await page.waitForTimeout(3800);
+
+    const spoken = await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken);
+    assert.deepEqual(spoken, ['three', 'two', 'one', 'launch'], 'the count should be spoken in order');
+  });
+});
+
+test('the countdown follows the chosen language', async () => {
+  await withPage(async (page) => {
+    await page.evaluate(() => {
+      const w = window as unknown as { __spoken: string[] };
+      w.__spoken = [];
+      const synth = window.speechSynthesis;
+      const original = synth.speak.bind(synth);
+      synth.speak = (u: SpeechSynthesisUtterance) => { w.__spoken.push(u.text); original(u); };
+    });
+    await page.getByRole('tab', { name: SCENES.concrete.label }).click();
+    await page.waitForTimeout(500);
+    await page.getByLabel('Countdown language').selectOption('fr');
+    await page.waitForTimeout(200);
+    await page.getByRole('button', { name: 'Launch rocket' }).click();
+    await page.waitForTimeout(3800);
+
+    const spoken = await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken);
+    assert.deepEqual(spoken, ['trois', 'deux', 'un', 'lancement'], 'the count should be in French');
   });
 });

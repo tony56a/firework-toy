@@ -8,11 +8,20 @@ import { FireworkSim } from './models/fireworks';
 import type { SceneId } from './models/scenes';
 import { CameraRig } from './render/camera/rig';
 import { SceneRenderer } from './render/sceneRenderer';
+import { ConcreteScene } from './scenes/concreteScene';
 import { createScene } from './scenes/registry';
+import { Speech } from './ui/speech';
 import type { Scene } from './scenes/scene';
 import { ControlPanel } from './ui/controlPanel';
 
 const ALL_KEYS = Object.keys(DEFAULT_STATE) as Array<keyof AppState>;
+
+/** A scene with a launch pad. ConcreteScene is the only one, but the app asks for the capability. */
+type LaunchSite = Pick<ConcreteScene, 'launch' | 'setLanguage'>;
+
+function isLaunchSite(scene: Scene): scene is Scene & LaunchSite {
+  return scene instanceof ConcreteScene;
+}
 
 /**
  * Composition root. Wires inputs to state, state to models, and models to renderers.
@@ -26,6 +35,7 @@ export class App {
   private readonly pointer: PointerInput;
   private readonly clap = new ClapInput();
   private readonly panel: ControlPanel;
+  private readonly speech = new Speech();
   /** Scenes are built on first use and then kept, so returning to one is instant. */
   private readonly scenes = new Map<SceneId, Scene>();
   private active: Scene;
@@ -49,10 +59,7 @@ export class App {
 
     this.panel.on('launch', () => this.launch(5));
     // Scene-specific actions are no-ops for scenes that have nothing to fire.
-    this.panel.on('launchRocket', () => {
-      const scene = this.active as Partial<{ launch(): void }>;
-      scene.launch?.();
-    });
+    this.panel.on('launchRocket', () => this.launchSite()?.launch());
     this.panel.on('randomize', () => this.store.set({ seed: Math.random().toString(36).slice(2, 8) }));
     this.panel.on('calibrate', () => this.clap.calibrate(performance.now()));
     this.panel.on('loadClassifier', ({ url }) => void this.clap.loadClassifier(url));
@@ -74,6 +81,7 @@ export class App {
       return; // the new scene replays everything below through its own react
     }
     this.active.react(state, changed);
+    this.launchSite()?.setLanguage(state.countDownLanguage);
     if (has('cameraMode')) this.rig.setMode(state.cameraMode);
     if (has('ambientMotion')) this.rig.setAmbient(state.ambientMotion);
     if (has('clapSensitivity')) this.clap.setSensitivity(state.clapSensitivity);
@@ -89,10 +97,25 @@ export class App {
     if (has('autoLaunch') && !state.autoLaunch) this.autoTimer = 0;
   }
 
+  /**
+   * The active scene as a launch site, or undefined when it is not one. Only the concrete scene has
+   * a pad to fire from, so the app asks for the capability rather than the scene's identity.
+   */
+  private launchSite(): LaunchSite | undefined {
+    return isLaunchSite(this.active) ? this.active : undefined;
+  }
+
   private sceneFor(id: SceneId): Scene {
     const cached = this.scenes.get(id);
     if (cached) return cached;
-    const scene = createScene(id, this.sim, { setTreeStats: (text) => this.panel.setTreeStats(text) }, this.store.get().seed);
+    const scene = createScene(
+      id,
+      this.sim,
+      { setTreeStats: (text) => this.panel.setTreeStats(text) },
+      this.store.get().seed,
+      // Only the concrete scene speaks, but every scene gets the callback and ignores it.
+      (text, language) => this.speech.speak(text, language),
+    );
     this.scenes.set(id, scene);
     return scene;
   }
