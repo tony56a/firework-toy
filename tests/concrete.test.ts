@@ -1,74 +1,65 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONCRETE_JOINT_WIDTH, CONCRETE_PANEL, CONCRETE_SIZE } from '../src/config';
-import { ConcreteSlab } from '../src/models/concrete';
+import { ConcreteMaterial, concreteSlabGeometry } from '../src/render/concreteMaterial';
+import { CONCRETE_GROUND } from '../src/models/concrete';
 
-const slab = new ConcreteSlab('meadow');
-const half = CONCRETE_SIZE / 2;
+/**
+ * The concrete surface is a fragment shader now, so most of what the old model tests checked cannot
+ * be checked here: GLSL does not run under node. What can be tested is the geometry the shader
+ * draws on, the uniforms it is driven by, and that the slab is still flat for the camera.
+ */
 
-test('the slab is flat everywhere, which is the whole point of the scene', () => {
-  for (const [x, z] of [[0, 0], [30, -12], [-64, 64], [half - 0.1, -half + 0.1]]) {
-    assert.equal(slab.heightAt(x, z), 0);
+test('the slab is a single flat quad, since the shader does the detail', () => {
+  const geometry = concreteSlabGeometry();
+  const position = geometry.attributes.position;
+  assert.equal(position.count, 4, 'a 1x1 segment plane should have four corners');
+  for (let i = 0; i < position.count; i++) {
+    // Float noise from the rotateX, so compare with a tolerance rather than exactly.
+    assert.ok(Math.abs(position.getY(i)) < 1e-9, `corner ${i} is not flat`);
+  }
+  const xs = Array.from({ length: position.count }, (_, i) => position.getX(i));
+  const zs = Array.from({ length: position.count }, (_, i) => position.getZ(i));
+  assert.equal(Math.max(...xs) - Math.min(...xs), CONCRETE_SIZE, 'the slab should span its size');
+  assert.equal(Math.max(...zs) - Math.min(...zs), CONCRETE_SIZE);
+});
+
+test('the ground is level everywhere and spans the world', () => {
+  for (const [x, z] of [[0, 0], [30, -12], [-64, 64]]) {
+    assert.equal(CONCRETE_GROUND.heightAt(x, z), 0);
+  }
+  assert.equal(CONCRETE_GROUND.size, CONCRETE_SIZE);
+});
+
+test('the material is handed the panel grid the shader needs', () => {
+  const material = new ConcreteMaterial('meadow');
+  assert.equal(material.uniforms.uSize.value, CONCRETE_SIZE);
+  assert.equal(material.uniforms.uPanel.value, CONCRETE_PANEL);
+  assert.equal(material.uniforms.uJointWidth.value, CONCRETE_JOINT_WIDTH);
+  assert.ok(CONCRETE_SIZE % CONCRETE_PANEL === 0, 'panels should tile the slab exactly');
+});
+
+test('a new seed changes the uniform, the same seed does not', () => {
+  const material = new ConcreteMaterial('meadow');
+  const first = material.uniforms.uSeed.value;
+  material.setSeed('harbour');
+  const other = material.uniforms.uSeed.value;
+  material.setSeed('meadow');
+  assert.equal(material.uniforms.uSeed.value, first, 'the same seed should give the same pour');
+  assert.notEqual(other, first, 'a new seed should pour a visibly different slab');
+});
+
+test('the seed phase stays small, so it cannot blow up the shader hash', () => {
+  for (const seed of ['meadow', 'harbour', '', 'a-very-long-seed-name-indeed', 'ünïcødé']) {
+    const material = new ConcreteMaterial(seed);
+    const value = material.uniforms.uSeed.value;
+    assert.ok(Number.isFinite(value) && value >= 0 && value < 100, `${seed} gave ${value}`);
   }
 });
 
-test('panels tile the slab without gaps or overlaps', () => {
-  assert.equal(slab.columns * CONCRETE_PANEL, CONCRETE_SIZE, 'panels should exactly fill the slab');
-  assert.equal(slab.panels.length ?? slab.columns * slab.rows, slab.columns * slab.rows);
-});
-
-test('every panel centre resolves back to its own panel', () => {
-  for (const panel of slab.panels) {
-    const found = slab.panelAt(panel.x, panel.z);
-    assert.equal(found.col, panel.col);
-    assert.equal(found.row, panel.row);
-  }
-});
-
-test('panelAt clamps to the slab instead of running off the edge', () => {
-  const far = slab.panelAt(9999, -9999);
-  assert.equal(far.col, slab.columns - 1);
-  assert.equal(far.row, 0);
-});
-
-test('joints are strongest on panel boundaries and absent mid-panel', () => {
-  // The slab takes an even number of panels, so the origin falls on a joint line.
-  assert.ok(slab.jointAt(0, 0) > 0.9, 'an even panel count puts a joint through the origin');
-  const centre = slab.panels[Math.floor(slab.panels.length / 2)];
-  assert.equal(slab.jointAt(centre.x, centre.z), 0, 'a panel centre is not a joint');
-  const boundary = -half + CONCRETE_PANEL; // first vertical joint line
-  assert.ok(slab.jointAt(boundary, 3) > 0.9, 'a joint should be opaque on the line');
-  assert.ok(slab.jointAt(boundary + CONCRETE_JOINT_WIDTH, 3) < 1e-6, 'and clear of it');
-});
-
-test('joints fall on both axes and at the rim', () => {
-  const mid = CONCRETE_PANEL * 2 - half;
-  assert.ok(slab.jointAt(5, mid) > 0.9, 'joints should run across z as well as x');
-  assert.ok(slab.jointAt(half, half) > 0, 'the slab border should read as a joint');
-});
-
-test('surface weights stay in range across the whole slab', () => {
-  for (let x = -half; x <= half; x += 7.3) {
-    for (let z = -half; z <= half; z += 7.3) {
-      const w = slab.weightsAt(x, z);
-      for (const [name, value] of Object.entries(w)) {
-        assert.ok(value >= 0 && value <= 1, `${name} out of range at ${x},${z}: ${value}`);
-      }
-    }
-  }
-});
-
-test('the same seed gives the same slab, a different seed does not', () => {
-  const again = new ConcreteSlab('meadow');
-  const other = new ConcreteSlab('harbour');
-  assert.deepEqual(again.weightsAt(4, 9), slab.weightsAt(4, 9));
-  const differs = [[0, 13], [-26, 40], [31, -7]].some(
-    ([x, z]) => again.weightsAt(x, z).tone !== other.weightsAt(x, z).tone,
-  );
-  assert.ok(differs, 'a new seed should pour a visibly different slab');
-});
-
-test('neighbouring panels differ in tone, so the slab reads as separate pours', () => {
-  const shifts = slab.panels.map((p) => p.toneShift);
-  assert.ok(Math.max(...shifts) - Math.min(...shifts) > 0.05, 'panels are too uniform');
+test('the material bolts onto Lambert rather than replacing it, keeping light and shadow', () => {
+  const material = new ConcreteMaterial('meadow');
+  assert.equal(typeof material.onBeforeCompile, 'function');
+  // A ShaderMaterial would have needed its own lighting and shadow handling written by hand.
+  assert.ok(!(material as unknown as { isShaderMaterial?: boolean }).isShaderMaterial);
 });
