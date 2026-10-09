@@ -48,7 +48,6 @@ export function roundedRectTrack(width: number, depth: number, radius: number): 
   const r = Math.min(radius, halfW, halfD);
   const sx = halfW - r; // straight half-length along x
   const sz = halfD - r; // straight half-length along z
-  const arc = (Math.PI / 2) * r;
 
   const segments: Segment[] = [
     straight(2 * sx, -sx, halfD, 2 * sx, 0, 0),
