@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { ModelKind } from '../models/modelKinds';
+
+export type { ModelKind } from '../models/modelKinds';
 
 /**
  * Low-poly geometry for the little models on show, shared by the forest that scatters them across
  * the terrain and the model table that displays them. One definition, so a tree looks the same
  * wherever it appears.
  */
-
-export type ModelKind = 'pine' | 'oak';
-export const MODEL_KINDS: readonly ModelKind[] = ['pine', 'oak'];
 
 const stretched = (g: THREE.BufferGeometry, x: number, y: number, z: number, sy = 1): THREE.BufferGeometry => {
   g.scale(1, sy, 1);
