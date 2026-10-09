@@ -16,7 +16,7 @@ export interface PanelActions {
 
 type NumericKey = { [K in keyof AppState]: AppState[K] extends number ? K : never }[keyof AppState];
 type BooleanKey = { [K in keyof AppState]: AppState[K] extends boolean ? K : never }[keyof AppState];
-type SelectableKey = 'timeOfDay' | 'detectorMode' | 'fireworkPalette' | 'sceneId';
+type SelectableKey = 'timeOfDay' | 'detectorMode' | 'fireworkPalette';
 
 const DRAG_MARGIN = 8;
 
@@ -38,8 +38,9 @@ function el<K extends keyof HTMLElementTagNameMap>(
  */
 export class ControlPanel extends Emitter<PanelActions> {
   private readonly syncs: Array<(state: Readonly<AppState>) => void> = [];
-  private readonly tabButtons = new Map<string, HTMLElement>();
-  private readonly tabPanels = new Map<string, HTMLElement>();
+  private readonly sceneTabs = new Map<SceneId, HTMLElement>();
+  private readonly groupButtons = new Map<string, HTMLElement>();
+  private readonly groupPanels = new Map<string, HTMLElement>();
   private readonly treeStats = el('div', { className: 'muted' });
   private readonly micStatus = el('div', { className: 'muted', textContent: 'Mic off' });
   private readonly meter = el('div', { className: 'meter' }, el('i'));
@@ -52,9 +53,8 @@ export class ControlPanel extends Emitter<PanelActions> {
     restore.onclick = () => store.set({ menuVisible: true });
 
     const titlebar = el('div', { className: 'titlebar' }, el('span', { textContent: 'Controls' }), hide);
-    const tabDefs: ReadonlyArray<{ id: string; label: string; fields: ReadonlyArray<HTMLElement> }> = [
-      { id: 'scene', label: 'Scene', fields: [
-        this.select('Scene', 'sceneId', SCENE_IDS.map((id) => [id, SCENES[id].label])),
+    const groupDefs: ReadonlyArray<{ id: string; label: string; fields: ReadonlyArray<HTMLElement> }> = [
+      { id: 'world', label: 'World', fields: [
         this.inScene('forest', this.seedField()),
         this.inScene('forest', this.slider('Trees', 'treeCount', 0, MAX_TREES, 50)),
         this.select('Time of day', 'timeOfDay', TIME_IDS.map((id) => [id, TIME_PRESETS[id].label])),
@@ -86,16 +86,33 @@ export class ControlPanel extends Emitter<PanelActions> {
       ] },
     ];
 
-    const tabs = el('div', { className: 'tabs', role: 'tablist' });
+    // Top row picks the scene; the row under it picks a group of controls within it.
+    const sceneTabs = el('div', { className: 'tabs scene-tabs', role: 'tablist', ariaLabel: 'Scene' });
+    const groupTabs = el('div', { className: 'tabs group-tabs', role: 'tablist', ariaLabel: 'Control group' });
     const bodies = el('div', { className: 'tab-body' });
-    const panel = el('div', { className: 'panel' }, titlebar, tabs, bodies);
-    for (const def of tabDefs) {
+    const panel = el('div', { className: 'panel' }, titlebar, sceneTabs, groupTabs, bodies);
+
+    for (const id of SCENE_IDS) {
+      const tab = el('button', { textContent: SCENES[id].label, role: 'tab', title: SCENES[id].label });
+      tab.onclick = () => { this.store.set({ sceneId: id }); this.clampIntoView(panel); };
+      this.sceneTabs.set(id, tab);
+      sceneTabs.append(tab);
+    }
+    this.syncs.push((s) => {
+      for (const [id, tab] of this.sceneTabs) {
+        const on = id === s.sceneId;
+        tab.classList.toggle('on', on);
+        tab.setAttribute('aria-selected', String(on));
+      }
+    });
+
+    for (const def of groupDefs) {
       const body = el('div', { className: 'tab-panel', role: 'tabpanel' }, ...def.fields);
       const tab = el('button', { textContent: def.label, role: 'tab', title: def.label });
-      tab.onclick = () => { this.showTab(def.id); this.clampIntoView(panel); };
-      this.tabButtons.set(def.id, tab);
-      this.tabPanels.set(def.id, body);
-      tabs.append(tab);
+      tab.onclick = () => { this.showGroup(def.id); this.clampIntoView(panel); };
+      this.groupButtons.set(def.id, tab);
+      this.groupPanels.set(def.id, body);
+      groupTabs.append(tab);
       bodies.append(body);
     }
 
@@ -105,15 +122,15 @@ export class ControlPanel extends Emitter<PanelActions> {
     store.subscribe((s) => this.syncs.forEach((f) => f(s)));
     this.syncs.forEach((f) => f(store.get()));
 
-    this.showTab(tabDefs[0].id);
+    this.showGroup(groupDefs[0].id);
     this.makeDraggable(panel, titlebar);
     window.addEventListener('resize', () => this.clampIntoView(panel));
   }
 
-  /** Shows one tab's fields and hides the rest. */
-  private showTab(id: string): void {
-    for (const [key, body] of this.tabPanels) body.hidden = key !== id;
-    for (const [key, tab] of this.tabButtons) {
+  /** Shows one control group's fields and hides the rest. */
+  private showGroup(id: string): void {
+    for (const [key, body] of this.groupPanels) body.hidden = key !== id;
+    for (const [key, tab] of this.groupButtons) {
       const on = key === id;
       tab.classList.toggle('on', on);
       tab.setAttribute('aria-selected', String(on));
