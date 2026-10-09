@@ -48,6 +48,11 @@ export class App {
     this.clap.on('level', ({ rms, hit }) => this.panel.setMeter(rms, hit));
 
     this.panel.on('launch', () => this.launch(5));
+    // Scene-specific actions are no-ops for scenes that have nothing to fire.
+    this.panel.on('launchRocket', () => {
+      const scene = this.active as Partial<{ launch(): void }>;
+      scene.launch?.();
+    });
     this.panel.on('randomize', () => this.store.set({ seed: Math.random().toString(36).slice(2, 8) }));
     this.panel.on('calibrate', () => this.clap.calibrate(performance.now()));
     this.panel.on('loadClassifier', ({ url }) => void this.clap.loadClassifier(url));

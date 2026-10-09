@@ -13,8 +13,6 @@ const CONCRETE_EDGE = 0x7d786f;
 const TOWER_COLOR = 0x9c3f34;
 const STEEL = 0x6f747a;
 const DARK_STEEL = 0x40464c;
-const ROCKET_WHITE = 0xe8e8e4;
-const ROCKET_BAND = 0xc23b2c;
 
 const BUILDING_COLORS = [0x8d8579, 0x7b7f86, 0x948a7c, 0x6f7580, 0x8a8177];
 
@@ -60,24 +58,6 @@ function towerGeometry(): THREE.BufferGeometry {
   return merged(parts);
 }
 
-/** The rocket: a body, a nose cone, fins and a band, standing nose-up with its base at y = 0. */
-function rocketGeometry(): THREE.BufferGeometry {
-  const bodyLength = ROCKET_HEIGHT * 0.62;
-  const noseLength = ROCKET_HEIGHT * 0.22;
-  const finLength = ROCKET_HEIGHT * 0.16;
-  return merged([
-    new THREE.CylinderGeometry(ROCKET_RADIUS, ROCKET_RADIUS, bodyLength, 16)
-      .translate(0, bodyLength / 2, 0),
-    new THREE.ConeGeometry(ROCKET_RADIUS, noseLength, 16)
-      .translate(0, bodyLength + noseLength / 2, 0),
-    ...[0, 1, 2].map((i) => {
-      const fin = new THREE.BoxGeometry(0.25, finLength, ROCKET_RADIUS * 1.5);
-      fin.translate(ROCKET_RADIUS * 0.9, finLength / 2, 0);
-      return fin.rotateY((i * Math.PI * 2) / 3);
-    }),
-  ]);
-}
-
 /** One building: a box plus a slightly inset roof cap, so the roofline is not a bare edge. */
 function buildingGeometry(b: Building): { body: THREE.BufferGeometry; roof: THREE.BufferGeometry } {
   const body = new THREE.BoxGeometry(b.width, b.height, b.depth)
@@ -88,9 +68,9 @@ function buildingGeometry(b: Building): { body: THREE.BufferGeometry; roof: THRE
 }
 
 /**
- * The launch site standing on the concrete pad: apron, rocket, service tower and the ground
- * buildings around it. All of the placement comes from the model, so what can overlap was decided
- * there rather than here.
+ * The static launch site standing on the concrete pad: apron, service tower and the ground buildings
+ * around them. The rocket itself is not here, because `RocketLaunchView` has to move it; everything
+ * fixed comes from the model, so what can overlap was decided there rather than here.
  */
 export class SiteView {
   private readonly meshes: THREE.Object3D[] = [];
@@ -111,24 +91,6 @@ export class SiteView {
     );
     ring.position.set(ROCKET_SPOT.x, 0.36, ROCKET_SPOT.z);
     this.add(ring);
-
-    const rocket = new THREE.Mesh(
-      rocketGeometry(),
-      new THREE.MeshStandardMaterial({ color: ROCKET_WHITE, roughness: 0.45, metalness: 0.05 }),
-    );
-    rocket.castShadow = true;
-    rocket.position.set(ROCKET_SPOT.x, 0.35, ROCKET_SPOT.z);
-    this.add(rocket);
-
-    // The band around the middle of the body, as a separate thin cylinder.
-    const band = new THREE.Mesh(
-      new THREE.CylinderGeometry(ROCKET_RADIUS * 1.02, ROCKET_RADIUS * 1.02, ROCKET_HEIGHT * 0.1, 16)
-        .translate(0, ROCKET_HEIGHT * 0.62 * 0.55, 0),
-      new THREE.MeshStandardMaterial({ color: ROCKET_BAND, roughness: 0.5 }),
-    );
-    band.castShadow = true;
-    band.position.set(ROCKET_SPOT.x, 0.35, ROCKET_SPOT.z);
-    this.add(band);
 
     const tower = new THREE.Mesh(
       towerGeometry(),

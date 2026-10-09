@@ -27,7 +27,7 @@ export abstract class SceneBase implements Scene {
   private readonly fireworks: FireworksView;
   private readonly rockets: RocketView;
 
-  constructor(sim: FireworkSim, protected readonly report: SceneReport) {
+  constructor(protected readonly sim: FireworkSim, protected readonly report: SceneReport) {
     this.atmosphere = new Atmosphere(this.three);
     this.fireworks = new FireworksView(this.three, sim);
     this.rockets = new RocketView(this.three, sim);

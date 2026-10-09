@@ -1,10 +1,15 @@
 import { CONCRETE_SIZE } from '../config';
+import type * as THREE from 'three';
 import type { AppState } from '../models/appState';
 import type { CameraFraming } from '../models/cameraFraming';
 import { CONCRETE_GROUND } from '../models/concrete';
+import { PALETTES } from '../models/fireworkPalettes';
+import { BURST_POINT } from '../models/launch';
+import { ROCKET_SPOT } from '../models/site';
 import type { FireworkSim } from '../models/fireworks';
 import type { Ground } from '../models/ground';
 import { ConcreteView } from '../render/concreteView';
+import { RocketLaunchView } from '../render/rocketLaunchView';
 import { SiteView } from '../render/siteView';
 import { SceneBase, type SceneReport } from './sceneBase';
 
@@ -15,6 +20,7 @@ import { SceneBase, type SceneReport } from './sceneBase';
  */
 export class ConcreteScene extends SceneBase {
   private readonly view: ConcreteView;
+  private readonly rocket: RocketLaunchView;
   private site: SiteView;
 
   /** The slab is the whole subject, and the viewer stands on it rather than on a table. */
@@ -24,6 +30,7 @@ export class ConcreteScene extends SceneBase {
     super(sim, report);
     this.view = new ConcreteView(this.three, seed);
     this.site = new SiteView(this.three, seed);
+    this.rocket = new RocketLaunchView(this.three);
   }
 
   /** The slab is flat and never changes, so one shared instance describes it. */
@@ -37,5 +44,20 @@ export class ConcreteScene extends SceneBase {
       this.site = new SiteView(this.three, state.seed);
     }
     this.commonReact(state, changed);
+  }
+
+  /** Starts a launch, if the pad is idle. */
+  launch(): void {
+    this.rocket.launch();
+  }
+
+  update(camera: THREE.Camera, dt: number): void {
+    const state = this.rocket.update(dt);
+    // burstAt, not launchVolley: the rocket has already flown to its apex, so this wants a burst
+    // where it is rather than another shell fired from that height.
+    if (state.burst) {
+      this.sim.burstAt(ROCKET_SPOT.x, BURST_POINT.y, ROCKET_SPOT.z, PALETTES.warm, 'peony');
+    }
+    super.update(camera, dt);
   }
 }

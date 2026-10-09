@@ -22,6 +22,9 @@ export interface VolleyParams {
 export const MAX_PARTICLES = 9000;
 
 interface Rocket { x: number; y: number; z: number; vx: number; vy: number; vz: number; primary: RGB; secondary: RGB; palette: Palette; effect: Effect }
+
+/** The subset of a rocket that a burst needs: no velocity, since a shell is at rest when it bursts. */
+export interface BurstSource { x: number; y: number; z: number; primary: RGB; secondary: RGB; palette: Palette; effect: Effect }
 interface Scheduled { t: number; run: () => void }
 
 /** What a view needs to draw a rocket: where it is, where it is going, and what color it burns. */
@@ -86,6 +89,21 @@ export class FireworkSim {
     this.flash.intensity *= Math.exp(-dt * 5);
   }
 
+  /**
+   * Explodes at a point without launching anything first. `launchVolley` is no use when something
+   * has already flown to its apex, such as the rocket on the launch pad: that wants a burst where it
+   * is, not another rocket fired from that height. Runs the same effects a real shell would.
+   */
+  burstAt(x: number, y: number, z: number, palette: Palette = PALETTES.rainbow, effect?: Effect): void {
+    const chosen = effect ?? EFFECTS[Math.floor(this.rng() * EFFECTS.length)];
+    this.explode({
+      x, y, z,
+      ...pickColors(palette, this.rng),
+      palette,
+      effect: chosen,
+    });
+  }
+
   private launchRocket(p: VolleyParams): void {
     const palette = p.palette ?? PALETTES.rainbow;
     const height = range(this.rng, p.heightRange * 0.4, p.heightRange);
@@ -101,8 +119,9 @@ export class FireworkSim {
     });
   }
 
-  private explode(r: Rocket): void {
-    const { x, y, z, effect, primary, secondary, palette } = r;
+  /** Everything a burst needs: where it is and what it looks like. A shell that reaches its apex
+   * has velocity by now, so `explode` takes only the parts it uses rather than a whole Rocket. */
+  private explode({ x, y, z, effect, primary, secondary, palette }: BurstSource): void {
     Object.assign(this.flash, { x, y, z, color: primary, intensity: 1 });
     switch (effect) {
       case 'peony':

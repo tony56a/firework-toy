@@ -48,3 +48,20 @@ export const BUILDING_MIN_HEIGHT = 5;
 export const BUILDING_MAX_HEIGHT = 17;
 export const BUILDING_MIN_DEPTH = 5;
 export const BUILDING_MAX_DEPTH = 11;
+
+/**
+ * The launch sequence, in seconds. Hold clamps the rocket down, then it rises easing away as a real
+ * one does, then bursts at apex.
+ *
+ * The burst height is a compromise: high enough to read as a launch rather than a ground firework,
+ * low enough to stay in frame. The orbit camera sits at about y=36 looking down at the pad, so
+ * anything much above this bursts behind the viewer.
+ */
+export const LAUNCH_HOLD = 0.9;
+export const LAUNCH_CLIMB = 3.4;
+export const LAUNCH_BURST_HEIGHT = 30;
+/** How long the pad stays empty after a launch before the rocket is set up again. */
+export const LAUNCH_RESET = 2.6;
+/** Peak engine plume length, and how fast it flickers. */
+export const PLUME_LENGTH = 7;
+export const PLUME_FLICKER = 18;

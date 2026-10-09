@@ -10,6 +10,7 @@ import { TIME_IDS, TIME_PRESETS } from '../models/timeOfDay';
 export interface PanelActions {
   randomize: void;
   launch: void;
+  launchRocket: void;
   calibrate: void;
   loadClassifier: { url: string };
 }
@@ -61,6 +62,7 @@ export class ControlPanel extends Emitter<PanelActions> {
         this.checkbox('Ambient movement', 'ambientMotion'),
         this.inScene('sky', this.slider('Train speed', 'trainSpeed', 0, TRAIN_SPEED_MAX, 0.1)),
         this.inAnyScene(['forest', 'concrete'], this.button('Randomize', 'randomize')),
+        this.inScene('concrete', this.button('Launch rocket', 'launchRocket')),
         this.inScene('forest', this.treeStats),
       ] },
       { id: 'camera', label: 'Camera', fields: [
@@ -276,7 +278,7 @@ export class ControlPanel extends Emitter<PanelActions> {
     return el('div', { className: 'cameras' }, ...buttons);
   }
 
-  private button(label: string, action: 'launch' | 'calibrate' | 'randomize', ghost = false): HTMLElement {
+  private button(label: string, action: keyof PanelActions, ghost = false): HTMLElement {
     const b = el('button', { textContent: label, className: ghost ? 'ghost' : '' });
     b.onclick = () => this.emit(action, undefined);
     return b;

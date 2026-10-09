@@ -104,3 +104,32 @@ test('the minimize button hides the panel and the restore button brings it back'
     assert.ok(await page.locator('.panel').isVisible(), 'panel should be back');
   });
 });
+
+test('the launch button only appears in the concrete scene', async () => {
+  await withPage(async (page) => {
+    assert.ok(!(await page.getByRole('button', { name: 'Launch rocket' }).isVisible()), 'not in the forest');
+    await page.getByRole('tab', { name: SCENES.concrete.label }).click();
+    await page.waitForTimeout(400);
+    assert.ok(await page.getByRole('button', { name: 'Launch rocket' }).isVisible());
+  });
+});
+
+test('launching the rocket takes it off the pad and puts it back', async () => {
+  await withPage(async (page) => {
+    await page.getByRole('tab', { name: SCENES.concrete.label }).click();
+    await page.waitForTimeout(600);
+    const button = page.getByRole('button', { name: 'Launch rocket' });
+
+    const onPad = await frame(page);
+    await button.click();
+    // Hold is 0.9s then the climb starts, so 2.5s in the rocket is well clear of the pad.
+    await page.waitForTimeout(2500);
+    const inFlight = await frame(page);
+    assert.notDeepEqual(inFlight, onPad, 'the frame should change while the rocket climbs');
+
+    // Hold + climb + reset is about 7s, after which the pad is ready again.
+    await page.waitForTimeout(6000);
+    const reset = await frame(page);
+    assert.notDeepEqual(reset, inFlight, 'the burst should have changed the frame');
+  });
+});
