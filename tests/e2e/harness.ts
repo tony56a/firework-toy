@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { chromium, type Page } from 'playwright';
+import { SCENES } from '../../src/models/scenes';
 
 /**
  * Boots Chrome on the dev server and hands the page to `body`, failing the run if the page logged
@@ -79,7 +80,7 @@ export function withPage(body: (page: Page) => Promise<void>): Promise<void> {
 /** Switches to the sky scene before running `body`. */
 export async function withSkyScene(body: (page: Page) => Promise<void>): Promise<void> {
   await withPage(async (page) => {
-    await page.getByRole('tab', { name: 'Empty sky' }).click();
+    await page.getByRole('tab', { name: SCENES.sky.label }).click();
     await page.waitForTimeout(800);
     await body(page);
   });

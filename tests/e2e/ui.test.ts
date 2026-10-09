@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
+import { SCENES } from '../../src/models/scenes';
 import { frame, looksDrawn, stopServer, withPage, withSkyScene } from './harness';
 
 after(async () => {
@@ -43,10 +44,10 @@ test('terrain-only controls are hidden in the sky scene and back in the forest',
   await withPage(async (page) => {
     const seed = page.getByLabel('Seed');
     assert.ok(await seed.isVisible(), 'seed should be visible in the forest');
-    await page.getByRole('tab', { name: 'Empty sky' }).click();
+    await page.getByRole('tab', { name: SCENES.sky.label }).click();
     await page.waitForTimeout(400);
     assert.ok(!(await seed.isVisible()), 'seed should be hidden in the sky');
-    await page.getByRole('tab', { name: 'Forest' }).click();
+    await page.getByRole('tab', { name: SCENES.forest.label }).click();
     await page.waitForTimeout(400);
     assert.ok(await seed.isVisible(), 'seed should come back in the forest');
   });
@@ -55,7 +56,7 @@ test('terrain-only controls are hidden in the sky scene and back in the forest',
 test('the train speed control only appears in the sky scene', async () => {
   await withPage(async (page) => {
     assert.ok(!(await page.getByLabel(/Train speed/).isVisible()), 'not in the forest');
-    await page.getByRole('tab', { name: 'Empty sky' }).click();
+    await page.getByRole('tab', { name: SCENES.sky.label }).click();
     await page.waitForTimeout(400);
     assert.ok(await page.getByLabel(/Train speed/).isVisible(), 'should appear in the sky');
   });
@@ -69,7 +70,7 @@ test('the control groups switch independently of the scene tabs', async () => {
     assert.ok(!(await page.getByLabel('Seed').isVisible()), 'World should close');
     assert.ok(await page.getByLabel(/Microphone/).isVisible(), 'Audio should open');
     // The scene did not change underneath.
-    assert.ok(await page.getByRole('tab', { name: 'Forest' }).getAttribute('aria-selected') === 'true');
+    assert.ok(await page.getByRole('tab', { name: SCENES.forest.label }).getAttribute('aria-selected') === 'true');
   });
 });
 

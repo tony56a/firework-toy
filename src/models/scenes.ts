@@ -4,7 +4,7 @@
  */
 export const SCENES = {
   forest: { label: 'Forest' },
-  sky: { label: 'Empty sky' },
+  sky: { label: 'Toy train' },
 } as const satisfies Record<string, { label: string }>;
 
 export type SceneId = keyof typeof SCENES;
