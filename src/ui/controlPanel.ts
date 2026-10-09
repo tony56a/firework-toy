@@ -1,4 +1,4 @@
-import { MAX_TREES } from '../config';
+import { MAX_TREES, TRAIN_SPEED_MAX } from '../config';
 import { Emitter } from '../core/emitter';
 import type { Store } from '../core/store';
 import type { AppState } from '../models/appState';
@@ -59,6 +59,7 @@ export class ControlPanel extends Emitter<PanelActions> {
         this.inScene('forest', this.slider('Trees', 'treeCount', 0, MAX_TREES, 50)),
         this.select('Time of day', 'timeOfDay', TIME_IDS.map((id) => [id, TIME_PRESETS[id].label])),
         this.checkbox('Ambient movement', 'ambientMotion'),
+        this.inScene('sky', this.slider('Train speed', 'trainSpeed', 0, TRAIN_SPEED_MAX, 0.1)),
         this.inScene('forest', this.button('Randomize', 'randomize')),
         this.inScene('forest', this.treeStats),
       ] },

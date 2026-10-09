@@ -37,7 +37,7 @@ export abstract class SceneBase implements Scene {
     if (changed.includes('showRockets')) this.rockets.setVisible(state.showRockets);
   }
 
-  update(camera: THREE.Camera): void {
+  update(camera: THREE.Camera, _dt: number): void {
     this.atmosphere.follow(camera);
     this.rockets.sync();
     this.fireworks.sync();

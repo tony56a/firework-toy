@@ -1,3 +1,4 @@
+import { TRAIN_SPEED_DEFAULT } from '../config';
 import type { CameraMode } from './cameraModes';
 import type { PaletteId } from './fireworkPalettes';
 import type { SceneId } from './scenes';
@@ -20,6 +21,7 @@ export interface AppState {
   heightRange: number;
   autoLaunch: boolean;
   autoLaunchInterval: number;
+  trainSpeed: number;
   showRockets: boolean;
   micEnabled: boolean;
   clapSensitivity: number;
@@ -40,6 +42,7 @@ export const DEFAULT_STATE: AppState = {
   heightRange: 75,
   autoLaunch: false,
   autoLaunchInterval: 1.5,
+  trainSpeed: TRAIN_SPEED_DEFAULT,
   showRockets: true,
   micEnabled: false,
   clapSensitivity: 7,

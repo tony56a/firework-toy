@@ -19,5 +19,5 @@ export interface Scene {
   react(state: Readonly<AppState>, changed: ReadonlyArray<keyof AppState>): void;
 
   /** Per-frame work, immediately before the scene is drawn. */
-  update(camera: THREE.Camera): void;
+  update(camera: THREE.Camera, dt: number): void;
 }

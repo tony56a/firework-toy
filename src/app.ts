@@ -131,7 +131,7 @@ export class App {
     }
     this.rig.update(dt, this.active.ground);
     this.sim.step(dt);
-    this.active.update(this.rig.camera);
+    this.active.update(this.rig.camera, dt);
     this.clap.tick(now);
     this.view.render(this.rig.camera, this.active.three);
     requestAnimationFrame(this.frame);
