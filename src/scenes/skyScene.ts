@@ -24,7 +24,9 @@ export class SkyScene extends SceneBase {
     super(sim, report);
     this.table = new ModelTableView(this.three);
     this.table.set(TABLE_MODELS);
-    this.train = new TrainView(this.three, TRACK, ModelTableView.surfaceY + 0.5);
+    // Wheels sit at local y = 0, so the group goes straight on the tabletop; the sleepers the view
+    // lays just under it rest on the surface in turn.
+    this.train = new TrainView(this.three, TRACK, ModelTableView.surfaceY);
   }
 
   react(state: Readonly<AppState>, changed: ReadonlyArray<keyof AppState>): void {
