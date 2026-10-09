@@ -28,3 +28,23 @@ export const CONCRETE_JOINT_WIDTH = 0.55;
 /** Aggregate speckle: cycles per world unit, and how strongly it tints. */
 export const CONCRETE_SPECKLE_SCALE = 1.7;
 export const CONCRETE_SPECKLE_STRENGTH = 0.8;
+
+// The launch site standing on the concrete: the pad the rocket sits on and the buildings beside it.
+export const PAD_RADIUS = 14;
+/** The rocket itself, sized against the pad so the two read together. */
+export const ROCKET_HEIGHT = 22;
+export const ROCKET_RADIUS = 1.7;
+/**
+ * How far back from the pad the service tower stands, and how tall it is. Far enough back that it
+ * does not hide the rocket from the orbit and ground cameras, and shorter than the rocket so the
+ * rocket still reads as the tallest thing on the pad.
+ */
+export const TOWER_OFFSET = 13;
+export const TOWER_HEIGHT = 18;
+export const TOWER_WIDTH = 4;
+/** Ground buildings are set this far out from the pad, clear of the apron. */
+export const BUILDING_CLEARANCE = 26;
+export const BUILDING_MIN_HEIGHT = 5;
+export const BUILDING_MAX_HEIGHT = 17;
+export const BUILDING_MIN_DEPTH = 5;
+export const BUILDING_MAX_DEPTH = 11;
