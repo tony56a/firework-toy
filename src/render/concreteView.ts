@@ -3,6 +3,13 @@ import { CONCRETE_SIZE, CONCRETE_THICKNESS } from '../config';
 import { ConcreteMaterial, concreteSlabGeometry } from './concreteMaterial';
 
 const RIM_COLOR = 0x63605c;
+/**
+ * The rim sits this far below the slab surface. Its top face used to land exactly on y = 0, coplanar
+ * with the slab, and the two surfaces z-fought: which one won depended on the viewing angle, so the
+ * joints appeared in some views and vanished in others. A small gap costs nothing to see and makes
+ * the outcome independent of the camera.
+ */
+export const RIM_DROP = 0.05;
 
 /**
  * The slab meshes for the concrete scene. The geometry is a single quad and all the surface detail
@@ -23,7 +30,7 @@ export class ConcreteView {
       new THREE.BoxGeometry(CONCRETE_SIZE, CONCRETE_THICKNESS, CONCRETE_SIZE),
       new THREE.MeshLambertMaterial({ color: RIM_COLOR }),
     );
-    this.rim.position.y = -CONCRETE_THICKNESS / 2;
+    this.rim.position.y = -CONCRETE_THICKNESS / 2 - RIM_DROP;
     this.rim.receiveShadow = true;
     this.rim.name = 'concrete-rim';
     this.scene.add(this.rim);

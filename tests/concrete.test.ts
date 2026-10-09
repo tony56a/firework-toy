@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CONCRETE_JOINT_WIDTH, CONCRETE_PANEL, CONCRETE_SIZE } from '../src/config';
+import { CONCRETE_JOINT_WIDTH, CONCRETE_PANEL, CONCRETE_SIZE, CONCRETE_THICKNESS } from '../src/config';
 import { ConcreteMaterial, concreteSlabGeometry } from '../src/render/concreteMaterial';
+import { RIM_DROP } from '../src/render/concreteView';
+import { injectedSources } from './helpers/concreteShaderSource';
 import { CONCRETE_GROUND } from '../src/models/concrete';
 
 /**
@@ -62,4 +64,20 @@ test('the material bolts onto Lambert rather than replacing it, keeping light an
   assert.equal(typeof material.onBeforeCompile, 'function');
   // A ShaderMaterial would have needed its own lighting and shadow handling written by hand.
   assert.ok(!(material as unknown as { isShaderMaterial?: boolean }).isShaderMaterial);
+});
+
+test('the rim sits clear of the slab, so the two cannot z-fight', () => {
+  const rimTop = -CONCRETE_THICKNESS / 2 - RIM_DROP + CONCRETE_THICKNESS / 2;
+  assert.ok(rimTop < 0, 'the rim top face must sit below the slab surface');
+  // Coplanar faces z-fight, and which one wins depends on the viewing angle, so the joints showed
+  // up in some camera modes and not others. Any gap at all fixes it.
+  assert.ok(RIM_DROP > 0, 'a zero drop puts the rim top face exactly on the slab');
+});
+
+test('joints widen to at least a pixel, so they survive a grazing angle', () => {
+  const { fragment } = injectedSources();
+  assert.ok(fragment.includes('fwidth'), 'joint width should follow screen-space derivatives');
+  // Without this the joint is uJointWidth wide in world units, which at a shallow angle is far
+  // thinner than a pixel and falls between samples, leaving the slab looking like one flat sheet.
+  assert.ok(/smoothstep\(\s*0\.0,\s*max\(\s*uJointWidth/.test(fragment), 'joint width should never be below one pixel');
 });

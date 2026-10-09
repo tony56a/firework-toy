@@ -128,11 +128,15 @@ export class ConcreteMaterial extends THREE.MeshLambertMaterial {
           float stain = clamp((concreteFbm(vSlab * 0.02 + vec2(11.0, -7.0)) - 0.42) * 1.9, 0.0, 1.0);
 
           // Distance to the nearest expansion joint, counting the slab border as one.
+          // The distance is widened to at least one pixel's worth of world space, so a joint never
+          // falls between samples and disappears: at a grazing angle a hairline joint would
+          // otherwise alias away entirely and the slab would look like an unbroken sheet.
           vec2 t = mod(vSlab + halfSize, uPanel);
           vec2 toLine = min(t, uPanel - t);
           vec2 toBorder = halfSize - abs(vSlab);
           float d = max(0.0, min(min(toLine.x, toLine.y), min(toBorder.x, toBorder.y)));
-          float joint = 1.0 - clamp(d / uJointWidth, 0.0, 1.0);
+          float pixel = max(fwidth(d), 1e-4);
+          float joint = 1.0 - smoothstep(0.0, max(uJointWidth, pixel), d);
 
           vec3 concrete = mix(uMid, uPale, tone);
           concrete = mix(concrete, uDark, stain * 0.7);
