@@ -28,10 +28,8 @@ export class ConcreteView {
       const z = position.getZ(i);
       position.setY(i, slab.heightAt());
       const w = slab.weightsAt(x, z);
-      color.copy(MID).lerp(PALE, w.tone).lerp(DARK, w.stain * 0.7);
-      // Fine aggregate speckle, kept subtle so it does not shimmer at distance.
-      const grain = 0.94 + w.speckle * 0.12;
-      color.multiplyScalar(grain).lerp(JOINT, slab.jointAt(x, z) * 0.85);
+      color.copy(MID).lerp(PALE, w.tone).lerp(DARK, w.stain * 0.7)
+        .lerp(JOINT, slab.jointAt(x, z) * 0.85);
       colors.set([color.r, color.g, color.b], i * 3);
     }
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));

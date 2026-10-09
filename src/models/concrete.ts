@@ -9,8 +9,6 @@ export interface ConcreteWeights {
   tone: number;
   /** Weathering and staining, 0 clean to 1 heavily marked. */
   stain: number;
-  /** Aggregate speckle, for close-up texture. */
-  speckle: number;
 }
 
 export interface ConcretePanel {
@@ -35,13 +33,11 @@ export class ConcreteSlab implements Ground {
   private readonly panelList: ConcretePanel[];
   private readonly toneNoise: Noise2D;
   private readonly stainNoise: Noise2D;
-  private readonly speckleNoise: Noise2D;
 
   constructor(seed: string) {
     const rng = rngFromSeed(seed);
     this.toneNoise = createNoise(rng);
     this.stainNoise = createNoise(rng);
-    this.speckleNoise = createNoise(rng);
     this.columns = Math.round(CONCRETE_SIZE / CONCRETE_PANEL);
     this.rows = this.columns;
     this.panelList = [];
@@ -96,7 +92,6 @@ export class ConcreteSlab implements Ground {
     return {
       tone: clamp(0.55 + panel.toneShift + (fbm(this.toneNoise, x * 0.035, z * 0.035, 2) - 0.5) * 0.3, 0, 1),
       stain: clamp(Math.max(0, stain - 0.42) * 1.9, 0, 1),
-      speckle: this.speckleNoise(x * 1.7, z * 1.7),
     };
   }
 }
