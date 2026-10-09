@@ -37,6 +37,7 @@ export class App {
     this.pointer = new PointerInput(canvas);
     this.panel = new ControlPanel(uiRoot, this.store);
     this.active = this.sceneFor(DEFAULT_STATE.sceneId);
+    this.rig.setFraming(this.active.framing);
 
     this.pointer.on('drag', ({ dx, dy }) => this.rig.drag(dx, dy));
     this.pointer.on('zoom', ({ factor }) => this.rig.zoom(factor));
@@ -97,6 +98,7 @@ export class App {
    */
   private swapScene(id: SceneId): void {
     this.active = this.sceneFor(id);
+    this.rig.setFraming(this.active.framing);
     this.active.react(this.store.get(), ALL_KEYS);
   }
 

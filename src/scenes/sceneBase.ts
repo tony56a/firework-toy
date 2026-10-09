@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { AppState } from '../models/appState';
+import type { CameraFraming } from '../models/cameraFraming';
 import type { FireworkSim } from '../models/fireworks';
 import type { Ground } from '../models/ground';
 import { TIME_PRESETS } from '../models/timeOfDay';
@@ -19,6 +20,7 @@ export interface SceneReport {
  */
 export abstract class SceneBase implements Scene {
   abstract readonly ground: Ground;
+  abstract readonly framing: CameraFraming;
   abstract react(state: Readonly<AppState>, changed: ReadonlyArray<keyof AppState>): void;
   readonly three = new THREE.Scene();
   private readonly atmosphere: Atmosphere;

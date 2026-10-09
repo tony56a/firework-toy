@@ -1,5 +1,6 @@
 import type * as THREE from 'three';
 import type { AppState } from '../models/appState';
+import type { CameraFraming } from '../models/cameraFraming';
 import type { Ground } from '../models/ground';
 
 /**
@@ -11,6 +12,8 @@ export interface Scene {
   readonly three: THREE.Scene;
   /** Heights and bounds for the camera and for picking launch positions. */
   readonly ground: Ground;
+  /** How big the subject is, so the camera can frame this scene rather than the last one. */
+  readonly framing: CameraFraming;
 
   /**
    * Applies the store changes a scene cares about. Scenes are told which keys changed so they can

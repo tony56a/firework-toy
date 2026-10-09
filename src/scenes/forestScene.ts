@@ -1,4 +1,6 @@
+import { WORLD_SIZE } from '../config';
 import type { AppState } from '../models/appState';
+import type { CameraFraming } from '../models/cameraFraming';
 import type { FireworkSim } from '../models/fireworks';
 import { Terrain } from '../models/terrain';
 import { scatterTrees } from '../models/trees';
@@ -8,6 +10,8 @@ import { SceneBase, type SceneReport } from './sceneBase';
 
 /** A heightfield of grass with a forest scattered over it, and the original scene. */
 export class ForestScene extends SceneBase {
+  /** The whole field is the subject, and the viewer sits on the terrain rather than on a slab. */
+  readonly framing: CameraFraming = { radius: WORLD_SIZE / 2, surface: 0 };
   private readonly terrainView: TerrainView;
   private readonly treeView: TreeView;
   private terrain: Terrain;

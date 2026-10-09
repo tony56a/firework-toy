@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { TRACK_RADIUS } from '../config';
+import { TABLE_HEIGHT, TABLE_WIDTH, TABLE_DEPTH, TRACK_RADIUS } from '../config';
 import type { AppState } from '../models/appState';
+import type { CameraFraming } from '../models/cameraFraming';
 import type { FireworkSim } from '../models/fireworks';
 import { FlatGround } from '../models/ground';
 import { TABLE_MODELS, TRACK_BOUNDS } from '../models/tableModels';
@@ -17,6 +18,11 @@ const TRACK = roundedRectTrack(TRACK_BOUNDS.width, TRACK_BOUNDS.depth, TRACK_RAD
  */
 export class SkyScene extends SceneBase {
   readonly ground = new FlatGround();
+  /** The diorama is the table, so frame its footprint and let the viewer stand on the tabletop. */
+  readonly framing: CameraFraming = {
+    radius: Math.hypot(TABLE_WIDTH / 2, TABLE_DEPTH / 2),
+    surface: TABLE_HEIGHT,
+  };
   private readonly table: ModelTableView;
   private readonly train: TrainView;
 
