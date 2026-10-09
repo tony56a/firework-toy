@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  PAD_RADIUS, ROCKET_HEIGHT, ROCKET_RADIUS, TOWER_HEIGHT, TOWER_OFFSET, TOWER_WIDTH,
+  PAD_RADIUS, ROCKET_HEIGHT, ROCKET_RADIUS, TOWER_HEIGHT, TOWER_WIDTH,
 } from '../config';
 import { ROCKET_SPOT, TOWER_SPOT, siteBuildings, type Building } from '../models/site';
 
@@ -12,6 +12,7 @@ const CONCRETE_APRON = 0x9a958c;
 const CONCRETE_EDGE = 0x7d786f;
 const TOWER_COLOR = 0x9c3f34;
 const STEEL = 0x6f747a;
+const WALKWAY_WIDTH = 1.4;
 const DARK_STEEL = 0x40464c;
 
 const BUILDING_COLORS = [0x8d8579, 0x7b7f86, 0x948a7c, 0x6f7580, 0x8a8177];
@@ -100,22 +101,29 @@ export class SiteView {
     tower.position.set(TOWER_SPOT.x, 0.35, TOWER_SPOT.z);
     this.add(tower);
 
-    // A walkway from the tower to the rocket. It spans from the tower face to the rocket, stopping
-    // short of the body so it does not disappear inside it.
-    const armLength = TOWER_OFFSET - TOWER_WIDTH / 2 - ROCKET_RADIUS * 1.6;
+    // A walkway from the tower across to the rocket. Both ends are stated and the length derived,
+    // so it cannot end up inside the rocket or short of the tower as the constants change.
+    //
+    // The rocket is at the origin and the tower stands off along z, so the walkway's long axis is z:
+    // the box is narrow in x and armLength deep in z. With those the other way round it runs
+    // sideways across the site and touches neither end.
+    const from = ROCKET_SPOT.z + ROCKET_RADIUS * 1.6; // clear of the rocket body
+    const to = TOWER_SPOT.z - TOWER_WIDTH / 2; // flush with the tower face
+    const armLength = to - from;
     const arm = new THREE.Mesh(
-      new THREE.BoxGeometry(armLength, 0.3, 1.4),
+      new THREE.BoxGeometry(WALKWAY_WIDTH, 0.3, armLength),
       new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.6, metalness: 0.3 }),
     );
-    arm.position.set(0, ROCKET_HEIGHT * 0.42, TOWER_OFFSET / 2 + 0.5);
+    const armY = ROCKET_HEIGHT * 0.42;
+    arm.position.set(0, armY, from + armLength / 2);
     this.add(arm);
 
-    // A support leg under the far end, so the walkway is not floating.
+    // A support leg under the rocket end of the walkway, so it is not floating.
     const leg = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, ROCKET_HEIGHT * 0.42, 0.5),
+      new THREE.BoxGeometry(0.5, armY, 0.5),
       new THREE.MeshStandardMaterial({ color: STEEL, roughness: 0.6, metalness: 0.3 }),
     );
-    leg.position.set(0, ROCKET_HEIGHT * 0.21, TOWER_OFFSET - ROCKET_RADIUS * 1.8);
+    leg.position.set(0, armY / 2, from + 0.6);
     this.add(leg);
 
     for (const [i, b] of siteBuildings(seed).entries()) {

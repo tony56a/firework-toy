@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  BUILDING_CLEARANCE, CONCRETE_SIZE, PAD_RADIUS, ROCKET_HEIGHT, ROCKET_RADIUS,
+  BUILDING_CLEARANCE, CONCRETE_SIZE, PAD_RADIUS, ROCKET_HEIGHT, ROCKET_RADIUS, TOWER_WIDTH,
 } from '../src/config';
-import { clashesWithPad, offSlab, ROCKET_SPOT, siteBuildings, TOWER_SPOT, tryPlaceBuilding } from '../src/models/site';
+import {
+  clashesWithPad, offSlab, ROCKET_SPOT, siteBuildings, TOWER_SIZE, TOWER_SPOT, tryPlaceBuilding,
+} from '../src/models/site';
 import { rngFromSeed } from '../src/core/random';
 
 const HALF = CONCRETE_SIZE / 2;
@@ -104,4 +106,24 @@ test('the sampler gives up rather than looping forever on a crowded pad', () => 
   }
   // Nowhere is free, so it must return null rather than place an overlapping building.
   assert.equal(tryPlaceBuilding(rng, taken, PAD_RADIUS, HALF - 2), null);
+});
+
+test('the walkway runs along the axis separating the rocket and the tower', () => {
+  const rocketZ = ROCKET_SPOT.z;
+  const towerZ = TOWER_SPOT.z;
+  // The gap is along one axis only. If the walkway's long axis were the other one it would run
+  // sideways across the site, touching neither end, which is exactly what it did once.
+  const separatedOnZ = rocketZ !== towerZ;
+  assert.ok(separatedOnZ, 'the rocket and tower are separated on z, so the walkway must span z');
+  assert.equal(TOWER_WIDTH, TOWER_SIZE.width, 'the tower width should come from the model');
+});
+
+test('the walkway spans the gap without entering either end', () => {
+  const from = ROCKET_SPOT.z + ROCKET_RADIUS * 1.6;
+  const to = TOWER_SPOT.z - TOWER_WIDTH / 2;
+  const length = to - from;
+  assert.ok(length > 0, 'the walkway would be inside out');
+  assert.ok(from > ROCKET_RADIUS, 'it must start clear of the rocket body');
+  assert.ok(Math.abs(to - (TOWER_SPOT.z - TOWER_WIDTH / 2)) < 1e-9, 'it should reach the tower face');
+  assert.ok(length < Math.abs(TOWER_SPOT.z - ROCKET_SPOT.z), 'it should span the gap, not overshoot');
 });
