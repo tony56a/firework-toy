@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CONCRETE_JOINT_WIDTH, CONCRETE_PANEL, CONCRETE_SIZE, CONCRETE_THICKNESS } from '../src/config';
+import {
+  CONCRETE_JOINT_WIDTH, CONCRETE_PANEL, CONCRETE_SIZE, CONCRETE_SPECKLE_SCALE, CONCRETE_SPECKLE_STRENGTH,
+  CONCRETE_THICKNESS,
+} from '../src/config';
 import { ConcreteMaterial, concreteSlabGeometry } from '../src/render/concreteMaterial';
 import { RIM_DROP } from '../src/render/concreteView';
 import { injectedSources } from './helpers/concreteShaderSource';
@@ -80,4 +83,26 @@ test('joints widen to at least a pixel, so they survive a grazing angle', () => 
   // Without this the joint is uJointWidth wide in world units, which at a shallow angle is far
   // thinner than a pixel and falls between samples, leaving the slab looking like one flat sheet.
   assert.ok(/smoothstep\(\s*0\.0,\s*max\(\s*uJointWidth/.test(fragment), 'joint width should never be below one pixel');
+});
+
+test('the speckle fades out before it gets finer than a pixel', () => {
+  const { fragment } = injectedSources();
+  // The reason the speckle was dropped the first time: baked per vertex it aliased into crawling
+  // noise. Per pixel it is fine close up, but at a distance each grain is sub-pixel and shimmers,
+  // so it has to be faded rather than merely scaled down.
+  assert.ok(fragment.includes('grainFade'), 'the grain should be faded by distance');
+  assert.ok(/smoothstep\([^)]*grainPixel/.test(fragment), 'the fade should follow screen-space derivatives');
+  assert.ok(fragment.includes('uSpeckle'), 'the grain strength should be a uniform');
+});
+
+test('the speckle is strong enough to actually be seen', () => {
+  // Measured against a rendered frame: at 0.16 the strongest pixel changed by 2/255, which is
+  // invisible. Anything under this reads as a flat slab no matter how the maths is written.
+  assert.ok(CONCRETE_SPECKLE_STRENGTH >= 0.4, `strength ${CONCRETE_SPECKLE_STRENGTH} is imperceptible`);
+  assert.ok(CONCRETE_SPECKLE_STRENGTH <= 1.2, `strength ${CONCRETE_SPECKLE_STRENGTH} reads as static`);
+});
+
+test('the speckle scale is fine enough to look like aggregate, not blotches', () => {
+  assert.ok(CONCRETE_SPECKLE_SCALE > 1, 'at a lower scale this would be a second layer of tone');
+  assert.ok(Number.isFinite(CONCRETE_SPECKLE_SCALE) && CONCRETE_SPECKLE_SCALE > 0);
 });

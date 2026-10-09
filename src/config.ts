@@ -25,3 +25,6 @@ export const CONCRETE_THICKNESS = 2;
 /** Side length of one cast panel, which sets where the expansion joints fall. */
 export const CONCRETE_PANEL = 13;
 export const CONCRETE_JOINT_WIDTH = 0.55;
+/** Aggregate speckle: cycles per world unit, and how strongly it tints. */
+export const CONCRETE_SPECKLE_SCALE = 1.7;
+export const CONCRETE_SPECKLE_STRENGTH = 0.8;

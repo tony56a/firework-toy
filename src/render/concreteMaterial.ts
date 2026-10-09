@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { CONCRETE_JOINT_WIDTH, CONCRETE_PANEL, CONCRETE_SIZE } from '../config';
+import {
+  CONCRETE_JOINT_WIDTH, CONCRETE_PANEL, CONCRETE_SIZE, CONCRETE_SPECKLE_SCALE, CONCRETE_SPECKLE_STRENGTH,
+} from '../config';
 
 /** Poured concrete, from cool shadowed grey to sun-bleached pale, in linear space. */
 const PALE = new THREE.Color(0xa8a49c);
@@ -17,6 +19,8 @@ const DECLARATIONS_GLSL = /* glsl */ `
   uniform float uPanel;
   uniform float uJointWidth;
   uniform float uSeed;
+  uniform float uSpeckleScale;
+  uniform float uSpeckle;
   uniform vec3 uPale;
   uniform vec3 uMid;
   uniform vec3 uDark;
@@ -63,6 +67,8 @@ export interface ConcreteUniforms {
   uPanel: THREE.IUniform<number>;
   uJointWidth: THREE.IUniform<number>;
   uSeed: THREE.IUniform<number>;
+  uSpeckleScale: THREE.IUniform<number>;
+  uSpeckle: THREE.IUniform<number>;
   uPale: THREE.IUniform<THREE.Color>;
   uMid: THREE.IUniform<THREE.Color>;
   uDark: THREE.IUniform<THREE.Color>;
@@ -88,6 +94,8 @@ export class ConcreteMaterial extends THREE.MeshLambertMaterial {
       uPanel: { value: CONCRETE_PANEL },
       uJointWidth: { value: CONCRETE_JOINT_WIDTH },
       uSeed: { value: seedPhase(seed) },
+      uSpeckleScale: { value: CONCRETE_SPECKLE_SCALE },
+      uSpeckle: { value: CONCRETE_SPECKLE_STRENGTH },
       uPale: { value: PALE.clone().convertSRGBToLinear() },
       uMid: { value: MID.clone().convertSRGBToLinear() },
       uDark: { value: DARK.clone().convertSRGBToLinear() },
@@ -127,6 +135,15 @@ export class ConcreteMaterial extends THREE.MeshLambertMaterial {
 
           float stain = clamp((concreteFbm(vSlab * 0.02 + vec2(11.0, -7.0)) - 0.42) * 1.9, 0.0, 1.0);
 
+          // Fine aggregate speckle. Done per pixel this is real texture rather than the aliased
+          // noise the old vertex-baked version produced, but at a distance the grain is finer than
+          // a pixel and would shimmer, so it is faded out as it approaches that limit instead.
+          // Hashing per pixel with no interpolation, since aggregate is uncorrelated: interpolating
+          // gives smooth blobs rather than grain.
+          float grainPixel = max(fwidth(vSlab.x), fwidth(vSlab.y));
+          float grainFade = 1.0 - smoothstep(0.3, 1.0, uSpeckleScale * grainPixel);
+          float grain = (concreteHash(floor(vSlab * uSpeckleScale) + uSeed) - 0.5) * grainFade;
+
           // Distance to the nearest expansion joint, counting the slab border as one.
           // The distance is widened to at least one pixel's worth of world space, so a joint never
           // falls between samples and disappears: at a grazing angle a hairline joint would
@@ -140,6 +157,8 @@ export class ConcreteMaterial extends THREE.MeshLambertMaterial {
 
           vec3 concrete = mix(uMid, uPale, tone);
           concrete = mix(concrete, uDark, stain * 0.7);
+          // Speckle rides on top as a multiplicative grain, so it lightens and darkens alike.
+          concrete *= 1.0 + grain * uSpeckle;
           concrete = mix(concrete, uJoint, joint * 0.85);
           diffuseColor.rgb *= concrete;
         }
