@@ -1,16 +1,18 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TRAIN_SPEED_DEFAULT } from '../config';
-import type { Track } from '../models/track';
+import { type Track, wheelAngle } from '../models/track';
 
 /** How far apart vehicles sit along the track, and how many of them there are. */
 const VEHICLE_COUNT = 4;
 const COUPLING_GAP = 4.2;
 const LOCO_LENGTH = 5.4;
+const WAGON_LENGTH = 3;
 
 const BODY_COLOR = 0xc2452f;
 const CAB_COLOR = 0x2f4a63;
 const WAGON_COLOR = 0x6f7f52;
+const WHEEL_COLOR = 0x2b2b2b;
 
 const merged = (parts: THREE.BufferGeometry[]): THREE.BufferGeometry =>
   mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)))!;
@@ -25,30 +27,22 @@ const LOCO = merged([
   new THREE.CylinderGeometry(0.3, 0.3, 1.1, 8).translate(LOCO_LENGTH - 2.6, 3.7, 0), // funnel
 ]);
 const WAGON = merged([
-  new THREE.BoxGeometry(3, 1.1, 2).translate(1.5, 1.1, 0),
-  new THREE.BoxGeometry(3, 0.35, 2.1).translate(1.5, 1.7, 0), // load bed
+  new THREE.BoxGeometry(WAGON_LENGTH, 1.1, 2).translate(WAGON_LENGTH / 2, 1.1, 0),
+  new THREE.BoxGeometry(WAGON_LENGTH, 0.35, 2.1).translate(WAGON_LENGTH / 2, 1.7, 0), // load bed
 ]);
 
 const WHEEL_RADIUS = 0.45;
+const WHEEL_THICKNESS = 0.22;
+const HALF_GAUGE = 1.05; // how far the rails sit either side of the centreline
 
-const shadowed = (mesh: THREE.Mesh): THREE.Mesh => {
-  mesh.castShadow = true;
-  return mesh;
-};
+/** One wheel, centred on its own axle so it can be spun by rotating the mesh. */
+function wheelGeometry(): THREE.BufferGeometry {
+  return new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, WHEEL_THICKNESS, 8).rotateX(Math.PI / 2);
+}
 
-function wheels(count: number, spacing: number): THREE.BufferGeometry {
-  const parts: THREE.BufferGeometry[] = [];
-  for (let i = 0; i < count; i++) {
-    const x = spacing * (i + 0.5);
-    for (const z of [-1.05, 1.05]) {
-      parts.push(
-        new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 0.22, 8)
-          .rotateX(Math.PI / 2)
-          .translate(x, WHEEL_RADIUS, z),
-      );
-    }
-  }
-  return merged(parts);
+/** Axle positions inset from each end, so every wheel sits under the body rather than past it. */
+function axlePositions(bodyLength: number): [number, number] {
+  return [bodyLength * 0.25, bodyLength * 0.75];
 }
 
 /** Sleepers laid flat along the loop, so the train appears to run on rails rather than hover. */
@@ -76,32 +70,55 @@ function sleepers(track: Track, y: number): THREE.InstancedMesh {
 /**
  * A toy train running a fixed loop. Speed is in world units per second and is driven by the
  * caller, so the slider in the panel stays in charge of it.
+ *
+ * Each vehicle is a group holding the body, with its wheels parented to that body and left at a
+ * fixed local offset. Parenting them to the vehicle rather than to the scene is what keeps them
+ * attached: the group's position and yaw follow the track, and the wheels come along for free
+ * instead of each needing its own placement.
  */
 export class TrainView {
-  private readonly vehicles: THREE.Object3D[] = [];
+  private readonly vehicles: THREE.Group[] = [];
+  private readonly wheels: THREE.Mesh[][] = [];
   private readonly rails: THREE.InstancedMesh;
   private speed = TRAIN_SPEED_DEFAULT;
   private travelled = 0;
 
   constructor(private readonly scene: THREE.Scene, private readonly track: Track, y: number) {
-    // Built once and cloned per vehicle: an Object3D can only have one parent, so the same mesh
-    // cannot be shared between groups.
-    const locoBody = shadowed(new THREE.Mesh(LOCO, new THREE.MeshStandardMaterial({ color: BODY_COLOR, roughness: 0.6 })));
-    const locoWheels = shadowed(new THREE.Mesh(
-      wheels(2, LOCO_LENGTH / 2),
-      new THREE.MeshStandardMaterial({ color: CAB_COLOR, roughness: 0.5 }),
-    ));
-    const wagonBody = shadowed(new THREE.Mesh(WAGON, new THREE.MeshStandardMaterial({ color: WAGON_COLOR, roughness: 0.7 })));
-    const wagonWheels = shadowed(new THREE.Mesh(
-      wheels(2, 3),
-      new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.9 }),
-    ));
     for (let i = 0; i < VEHICLE_COUNT; i++) {
-      const group = new THREE.Group();
-      group.add((i === 0 ? locoBody : wagonBody).clone(), (i === 0 ? locoWheels : wagonWheels).clone());
-      group.position.y = y;
-      this.vehicles.push(group);
-      this.scene.add(group);
+      const isLoco = i === 0;
+      const bodyLength = isLoco ? LOCO_LENGTH : WAGON_LENGTH;
+      const body = new THREE.Mesh(
+        isLoco ? LOCO : WAGON,
+        new THREE.MeshStandardMaterial({
+          color: isLoco ? BODY_COLOR : WAGON_COLOR,
+          roughness: isLoco ? 0.6 : 0.7,
+        }),
+      );
+      body.castShadow = true;
+
+      const wheels: THREE.Mesh[] = [];
+      for (const x of axlePositions(bodyLength)) {
+        for (const z of [-HALF_GAUGE, HALF_GAUGE]) {
+          const wheel = new THREE.Mesh(
+            wheelGeometry(),
+            new THREE.MeshStandardMaterial({
+              color: isLoco ? CAB_COLOR : WHEEL_COLOR,
+              roughness: isLoco ? 0.5 : 0.9,
+            }),
+          );
+          wheel.position.set(x, WHEEL_RADIUS, z);
+          wheel.castShadow = true;
+          body.add(wheel); // children of the body, so they ride along
+          wheels.push(wheel);
+        }
+      }
+
+      const vehicle = new THREE.Group();
+      vehicle.add(body);
+      vehicle.position.y = y;
+      this.vehicles.push(vehicle);
+      this.wheels.push(wheels);
+      this.scene.add(vehicle);
     }
     this.rails = sleepers(track, y - 0.02);
     this.scene.add(this.rails);
@@ -113,12 +130,19 @@ export class TrainView {
   }
 
   update(dt: number): void {
+    // Keep rolling on past the start of the loop: the angle is derived from total distance, so a
+    // backwards or looping train keeps turning instead of snapping back when `travelled` wraps.
     this.travelled = (this.travelled + this.speed * dt) % this.track.length;
+    const rolled = wheelAngle(this.travelled, WHEEL_RADIUS);
     this.vehicles.forEach((vehicle, i) => {
       const p = this.track.at(this.travelled - i * COUPLING_GAP);
       vehicle.position.x = p.x;
       vehicle.position.z = p.z;
       vehicle.rotation.y = -p.heading;
+      // Wheels spin about their own axle, so they must not inherit the vehicle's yaw. The sign is
+      // negative because the vehicles travel along +x: for the contact point at the bottom of the
+      // wheel to stay put, omega has to be -distance/radius about +z.
+      for (const wheel of this.wheels[i]) wheel.rotation.set(0, 0, -rolled);
     });
   }
 }

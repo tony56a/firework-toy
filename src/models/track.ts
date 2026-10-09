@@ -1,5 +1,12 @@
 /**
- * A closed loop for the toy train: where it is and which way it faces at any distance travelled.
+ * How far a wheel of the given radius has turned after rolling `distance` along the track. A
+ * wheel rolls without slipping, so the distance it covers equals the arc it turns through.
+ */
+export function wheelAngle(distance: number, radius: number): number {
+  return distance / radius;
+}
+
+/** A closed loop for the toy train: where it is and which way it faces at any distance travelled.
  * Pure maths with no renderer dependency, so the layout can be tested on its own.
  */
 

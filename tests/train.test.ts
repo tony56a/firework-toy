@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { TRACK_RADIUS } from '../src/config';
-import { roundedRectTrack, type TrackPoint } from '../src/models/track';
+import { roundedRectTrack, wheelAngle, type TrackPoint } from '../src/models/track';
 
 /**
  * The train view derives its vehicle positions straight from the track, so these check the
@@ -52,6 +52,30 @@ test('no vehicle ends up off the table at any distance', () => {
     for (let i = 0; i < VEHICLE_COUNT; i++) {
       const p = at(d - i * COUPLING_GAP);
       assert.ok(Math.abs(p.x) <= 26 + 1e-9 && Math.abs(p.z) <= 14 + 1e-9, `off the rail at ${d}`);
+    }
+  }
+});
+
+test('a wheel turns through the angle its rolling distance implies', () => {
+  const radius = 0.45;
+  assert.equal(wheelAngle(0, radius), 0);
+  // A full turn covers the wheel's circumference.
+  assert.ok(Math.abs(wheelAngle(2 * Math.PI * radius, radius) - 2 * Math.PI) < 1e-12);
+  // Half a lap around the loop is half a turn of arc per wheel radius travelled.
+  assert.ok(Math.abs(wheelAngle(10, radius) - 10 / radius) < 1e-12);
+  assert.ok(wheelAngle(3, radius) > 0, 'rolling forward should turn the wheel forward');
+  assert.ok(wheelAngle(-3, radius) < 0, 'rolling back should turn it back');
+  // Proportional: twice the distance is twice the angle.
+  assert.ok(Math.abs(wheelAngle(7, radius) - 2 * wheelAngle(3.5, radius)) < 1e-12);
+});
+
+test('every axle sits under its body, not past the end', () => {
+  // Mirrors the view's inset placement; the old code used a spacing that put a wagon's rear
+  // wheel 1.5 units behind the wagon.
+  for (const [name, bodyLength] of [['loco', 5.4], ['wagon', 3]] as const) {
+    for (const x of [bodyLength * 0.25, bodyLength * 0.75]) {
+      assert.ok(x > 0, `${name} front axle is behind the coupler`);
+      assert.ok(x < bodyLength, `${name} rear axle is past the body`);
     }
   }
 });
