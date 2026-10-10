@@ -12,9 +12,15 @@ import { clamp } from '../../core/random';
  *
  * The burst height is a parameter rather than a constant, so the same code covers any height the
  * viewer picks.
+ *
+ * There is deliberately no "burst happened" flag here. This is a snapshot of a moment, and an
+ * instant is not a property of a snapshot: an earlier version fired the burst from a fixed one
+ * sixtieth-of-a-second window, which silently fired nothing at 50fps and twice at 120fps. Whoever
+ * fires the burst should detect the transition into the burst phase instead, which cannot be
+ * missed however long the frame took.
  */
 
-export type LaunchPhase = 'idle' | 'hold' | 'climb' | 'burst' | 'reset';
+export type LaunchPhase = 'idle' | 'hold' | 'climb' | 'burst';
 
 export interface LaunchState {
   phase: LaunchPhase;
@@ -22,13 +28,11 @@ export interface LaunchState {
   altitude: number;
   /** 0 to 1, how far through the climb the rocket is. Drives the plume. */
   throttle: number;
-  /** Whether the pad should fire a burst this frame. True only on the frame of the burst. */
-  burst: boolean;
   /** Whether the rocket should be drawn at all. False once it has left. */
   visible: boolean;
 }
 
-const IDLE: LaunchState = { phase: 'idle', altitude: 0, throttle: 0, burst: false, visible: true };
+const IDLE: LaunchState = { phase: 'idle', altitude: 0, throttle: 0, visible: true };
 
 /** Easing that leaves the pad slowly and gains speed, which is how a rocket actually lifts off. */
 function climbHeight(t: number, burstHeight: number): number {
@@ -48,7 +52,7 @@ export function launchState(
 
   if (elapsed < LAUNCH_HOLD) {
     // Clamps are holding it: it stays put, and the engine is lit but producing no thrust.
-    return { phase: 'hold', altitude: 0, throttle: 0.25, burst: false, visible: true };
+    return { phase: 'hold', altitude: 0, throttle: 0.25, visible: true };
   }
 
   const sinceClimb = elapsed - LAUNCH_HOLD;
@@ -59,18 +63,14 @@ export function launchState(
       phase: 'climb',
       altitude: climbHeight(t, burstHeight),
       throttle: clamp(0.4 + t * 0.6, 0, 1),
-      burst: false,
       visible: true,
     };
   }
 
-  // One frame only: the burst belongs to the instant the rocket reaches the top.
-  const burst = sinceClimb < LAUNCH_CLIMB + 1 / 60;
   return {
     phase: 'burst',
     altitude: burstHeight,
     throttle: 0,
-    burst,
     visible: false,
   };
 }

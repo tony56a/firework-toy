@@ -12,7 +12,6 @@ test('nothing has happened before the button is pressed', () => {
     assert.equal(s.phase, 'idle');
     assert.equal(s.altitude, 0, 'the rocket should be sitting on the pad');
     assert.equal(s.throttle, 0, 'no engine running');
-    assert.equal(s.burst, false);
     assert.equal(s.visible, true, 'the rocket should still be drawn');
   }
 });
@@ -36,15 +35,48 @@ test('the rocket leaves the pad slowly, then gains speed', () => {
   );
 });
 
-test('the rocket reaches the burst altitude and bursts once', () => {
+test('the rocket reaches the burst altitude and then disappears', () => {
   const atTop = launchState(LAUNCH_HOLD + LAUNCH_CLIMB);
   assert.equal(atTop.phase, 'burst');
   assert.ok(Math.abs(atTop.altitude - LAUNCH_BURST_DEFAULT) < 1e-9);
-  assert.equal(atTop.burst, true, 'the burst should happen at the top');
   assert.equal(atTop.visible, false, 'the rocket is gone once it bursts');
-  // And only that frame: the very next moment must not burst again.
-  assert.equal(launchState(LAUNCH_HOLD + LAUNCH_CLIMB + 0.05).burst, false);
-  assert.equal(launchState(LAUNCH_HOLD + LAUNCH_CLIMB + 0.5).burst, false);
+});
+
+/**
+ * Walks the whole sequence the way the frame loop does, counting transitions into the burst phase.
+ * The burst is fired off that transition, so this is the only way to check it fires exactly once.
+ */
+function countBursts(fps: number, hitch = 0): number {
+  const dt = 1 / fps;
+  let bursts = 0;
+  let previous = launchState(0).phase;
+  let elapsed = 0;
+  let frame = 0;
+  while (elapsed < LAUNCH_DURATION + 1) {
+    if (hitch > 0 && frame === Math.floor(fps * 2)) elapsed += hitch;
+    const phase = launchState(elapsed).phase;
+    if (phase === 'burst' && previous !== 'burst') bursts++;
+    previous = phase;
+    elapsed += dt;
+    frame++;
+  }
+  return bursts;
+}
+
+test('the burst fires exactly once at any frame rate', () => {
+  // Regression: firing from a fixed 1/60s window instead of the transition into the burst phase
+  // fired nothing at all between roughly 15 and 50fps, because no frame landed inside the window,
+  // and fired twice at 120fps, where two frames did. The rocket would rise and vanish in silence.
+  for (const fps of [120, 90, 60, 50, 30, 24, 20, 15, 10]) {
+    assert.equal(countBursts(fps), 1, `should burst once at ${fps}fps`);
+  }
+});
+
+test('a dropped frame mid-climb does not swallow the burst', () => {
+  // A backgrounded tab or a long GC pause makes one frame take half a second, which steps clean
+  // over the top of the climb.
+  assert.equal(countBursts(60, 0.5), 1);
+  assert.equal(countBursts(30, 1.2), 1);
 });
 
 test('every selectable burst height clears the rocket', () => {
@@ -91,15 +123,18 @@ test('the camera follows the rocket from the moment the clamps hold it', () => {
   assert.equal(shouldTrack('climb'), true);
   assert.equal(shouldTrack('burst'), true);
   assert.equal(shouldTrack('idle'), false);
-  assert.equal(shouldTrack('reset'), false);
 });
 
 test('the pad resets after the sequence, so it can launch again', () => {
   assert.ok(launchFinished(LAUNCH_DURATION - 0.01) === false);
   assert.ok(launchFinished(LAUNCH_DURATION), 'it should be over by then');
   assert.ok(launchFinished(LAUNCH_DURATION + 5));
-  // Long after everything, it should not keep reporting a burst.
-  assert.equal(launchState(LAUNCH_DURATION + 5).burst, false);
+  // Beyond the end the snapshot keeps reporting the burst, because it is a pure function of
+  // elapsed time and has no way to know the view has stopped asking. Coming back to the pad is the
+  // view's job: it drops the clock on launchFinished and then reads a negative elapsed time.
+  assert.equal(launchState(LAUNCH_DURATION + 5).phase, 'burst');
+  assert.equal(launchState(-1).phase, 'idle');
+  assert.equal(launchState(-1).visible, true, 'the rocket should be back on the pad');
 });
 
 test('altitude never goes backwards or leaves the world', () => {

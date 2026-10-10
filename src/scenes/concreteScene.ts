@@ -9,7 +9,7 @@ import { CONCRETE_GROUND } from '../models/concrete/slab';
 import { PALETTES } from '../models/fireworkPalettes';
 import { countdownOver, countdownStep } from '../models/concrete/countdown';
 import { phrase, type LanguageId } from '../models/concrete/countdownPhrases';
-import { shouldTrack } from '../models/concrete/launch';
+import { shouldTrack, type LaunchPhase } from '../models/concrete/launch';
 import { ROCKET_SPOT } from '../models/concrete/site';
 import type { FireworkSim } from '../models/fireworks';
 import type { Ground } from '../models/ground';
@@ -36,6 +36,8 @@ export class ConcreteScene extends SceneBase {
   private countFrom = COUNTDOWN_DEFAULT;
   /** The last word spoken, so a step is not repeated on the frame after it changes. */
   private lastSaid: string | null = null;
+  /** Phase of the last frame, so the burst can be fired on the transition into it. */
+  private lastPhase: LaunchPhase = 'idle';
   /** The count this launch is running, fixed at the moment it started. */
   private activeCount = COUNTDOWN_DEFAULT;
   /** The burst height chosen in the UI, and the one this launch is actually running at. */
@@ -125,11 +127,14 @@ export class ConcreteScene extends SceneBase {
       }
     }
     const state = this.rocket.update(dt, this.activeHeight);
+    // Fired on the transition into the burst phase rather than on a slice of time, so a slow frame
+    // or a backgrounded tab cannot step over the burst and leave the rocket to vanish in silence.
     // burstAt, not launchVolley: the rocket has already flown to its apex, so this wants a burst
     // where it is rather than another shell fired from that height.
-    if (state.burst) {
+    if (state.phase === 'burst' && this.lastPhase !== 'burst') {
       this.sim.burstAt(ROCKET_SPOT.x, this.activeHeight, ROCKET_SPOT.z, PALETTES.warm, 'peony');
     }
+    this.lastPhase = state.phase;
     // Hand the camera the rocket while it is flying, and take it back once the sequence is over, so
     // the viewer gets their own view back rather than being left looking at empty sky.
     this.track(
