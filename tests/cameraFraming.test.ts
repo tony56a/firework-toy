@@ -82,28 +82,45 @@ test('a tracked point stays on screen across the whole burst height range', () =
   }
 });
 
-test('tracking takes precedence over the mode, and clearing it gives the mode back', () => {
+test('tracking aims the camera without moving it, and clearing it restores the mode', () => {
   const rig = new CameraRig();
   rig.setFraming({ radius: 65, surface: 0, eye: { x: 0, z: -30 } });
   rig.setAspect(1.6);
   rig.setMode('overhead');
 
   rig.update(1 / 60, CONCRETE_GROUND);
-  const overhead = rig.camera.position.clone();
+  const overheadPosition = rig.camera.position.clone();
+  const overheadAim = new THREE.Vector3();
+  rig.camera.getWorldDirection(overheadAim);
 
-  rig.setTracking({ x: 0, y: 80, z: 0 });
+  // Overhead looks straight down at the pad.
+  assert.ok(overheadAim.y < -0.99, 'overhead should be looking down');
+
+  // Overhead sits at about y=123, so track a burst above that: the camera has to tilt up past the
+  // horizon to see it, which is the case where a mode-based aim would have pointed the wrong way.
+  rig.setTracking({ x: 0, y: LAUNCH_BURST_MAX, z: 0 });
   assert.equal(rig.isTracking, true);
   rig.update(1 / 60, CONCRETE_GROUND);
-  const tracking = rig.camera.position.clone();
-  assert.ok(tracking.distanceTo(overhead) > 1, 'tracking should move the camera off the mode');
+
+  // The point of the change: the camera stays put and only its aim follows.
+  assert.ok(
+    rig.camera.position.distanceTo(overheadPosition) < 0.001,
+    'tracking should not move the camera, only turn it',
+  );
+  const trackedAim = new THREE.Vector3();
+  rig.camera.getWorldDirection(trackedAim);
+  assert.ok(trackedAim.y > 0, 'the camera should now be looking up at the rocket above it');
 
   rig.setTracking(null);
   assert.equal(rig.isTracking, false);
   rig.update(1 / 60, CONCRETE_GROUND);
   assert.ok(
-    rig.camera.position.distanceTo(overhead) < 0.001,
-    'the original mode should be restored exactly',
+    rig.camera.position.distanceTo(overheadPosition) < 0.001,
+    'the mode should be restored exactly',
   );
+  const restored = new THREE.Vector3();
+  rig.camera.getWorldDirection(restored);
+  assert.ok(restored.y < -0.99, 'and should be looking down again');
 });
 
 test('the tracking camera never sinks below the ground', () => {

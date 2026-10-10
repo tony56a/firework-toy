@@ -91,32 +91,20 @@ export class CameraRig {
     if (this.ambient) this.motionTime += dt;
     this.camera.up.copy(UP);
     const k = cameraConstants(this.framing);
-    // Tracking takes precedence over the mode, so the camera follows a launch from whichever view
-    // the viewer happened to be in and hands control back when it ends.
-    if (this.tracking) return this.updateTracking(ground, k);
+    // The mode still decides where the camera is; tracking only overrides where it looks. Aiming
+    // without moving keeps the viewer's sense of place fixed, so the pad does not slide away as the
+    // rocket climbs, and it puts the rocket dead centre at any burst height.
     switch (this.mode) {
-      case 'orbit': return this.updateOrbit(dt, ground);
-      case 'ground': return this.updateGround(dt, ground, k);
-      case 'plane': return this.updatePlane(ground, k);
-      case 'overhead': return this.updateOverhead(k);
-      case 'ridge': return this.updateRidge(ground, k);
+      case 'orbit': this.updateOrbit(dt, ground); break;
+      case 'ground': this.updateGround(dt, ground, k); break;
+      case 'plane': this.updatePlane(ground, k); break;
+      case 'overhead': this.updateOverhead(k); break;
+      case 'ridge': this.updateRidge(ground, k); break;
     }
-  }
-
-  /**
-   * Follows the tracked point: holds the orbit camera's azimuth so engaging feels like the view
-   * tilting up from where it already was, and rises most of the way with the target so it climbs
-   * through the frame against the sky rather than shrinking into the distance.
-   */
-  private updateTracking(ground: Ground, k: CameraConstants): void {
-    const t = this.tracking!;
-    const r = k.orbitRadius * 0.85;
-    const x = r * Math.sin(this.orbit.theta);
-    const z = r * Math.cos(this.orbit.theta);
-    // Never drop below the surface, or a low burst would put the camera underground.
-    const y = Math.max(ground.heightAt(x, z) + k.eyeOffset, t.y * 0.65);
-    this.camera.position.set(x, y, z);
-    this.camera.lookAt(t.x, t.y, t.z);
+    if (this.tracking) {
+      const t = this.tracking;
+      this.camera.lookAt(t.x, t.y, t.z);
+    }
   }
 
   /** Horizontal unit vector the camera faces, falling back to screen-up when looking straight down. */
