@@ -31,9 +31,14 @@ export const CONCRETE_SPECKLE_STRENGTH = 0.8;
 
 // The launch site standing on the concrete: the pad the rocket sits on and the buildings beside it.
 export const PAD_RADIUS = 14;
-/** The rocket itself, sized against the pad so the two read together. */
+/**
+ * The rocket, an Atlas V 551, sized against the pad so the two read together. The real vehicle is
+ * 58.3 m tall against a 3.81 m core, so at 22 units the core comes out at 0.72: a 15:1 slenderness.
+ * That thinness is the point of the vehicle, but it is well inside the apron, so the pad rings
+ * drawn from this radius are correspondingly tight.
+ */
 export const ROCKET_HEIGHT = 22;
-export const ROCKET_RADIUS = 1.7;
+export const ROCKET_RADIUS = 0.72;
 /**
  * How far back from the pad the service tower stands, and how tall it is. Far enough back that it
  * does not hide the rocket from the orbit and ground cameras, and shorter than the rocket so the

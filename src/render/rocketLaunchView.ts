@@ -8,26 +8,84 @@ const merged = (parts: THREE.BufferGeometry[]): THREE.BufferGeometry =>
   mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)))!;
 
 const ROCKET_WHITE = 0xe8e8e4;
-const ROCKET_BAND = 0xc23b2c;
+const ROCKET_BAND = 0x2f3134;
+const ROCKET_ACCENT = 0x1b3a6b;
 const FLAME_OUTER = 0xffb347;
 const FLAME_INNER = 0xfff3c4;
 
-/** Nose points up, base at the origin, so the mesh can simply be lifted by its altitude. */
+/**
+ * An Atlas V 551, scaled down to ROCKET_HEIGHT. Lengths are fractions of the overall height so the
+ * proportions survive a retune of that, and are taken from the real vehicle: a 32.5 m Common Core
+ * Booster, an interstage, and the 5.4 m RUAG fairing that swallows the Centaur and the payload.
+ */
+const CORE_LENGTH = ROCKET_HEIGHT * 0.557;
+const INTERSTAGE = ROCKET_HEIGHT * 0.027;
+/** The fairing is wider than the booster beneath it, which is most of what makes a 551 a 551. */
+const FAIRING_RADIUS = ROCKET_RADIUS * 1.42;
+const FAIRING_LENGTH = ROCKET_HEIGHT * 0.416;
+const SRB_RADIUS = ROCKET_RADIUS * 0.42;
+const SRB_LENGTH = ROCKET_HEIGHT * 0.292;
+/** Stand-off from the core axis, so the boosters sit alongside it rather than through it. */
+const SRB_AXIS = ROCKET_RADIUS * 1.46;
+const NOZZLE_RADIUS = ROCKET_RADIUS * 0.5;
+const NOZZLE_HEIGHT = ROCKET_HEIGHT * 0.041;
+
+/**
+ * Five boosters in a fan with the gap facing away from the standing viewer. Every Atlas V SRB layout
+ * is asymmetric, since five will not divide evenly round the core, but the article does not give the
+ * azimuths, so the angles here are chosen to read well rather than measured.
+ */
+const SRB_AZIMUTHS = [60, 120, 180, 240, 300].map((deg) => (deg * Math.PI) / 180);
+
+/**
+ * The RUAG fairing is an ogive, blunter than a cone and rounded at the tip. Falling off a cosine
+ * softened by a power keeps the full width low down and rounds the nose, which a plain cone would
+ * leave as a spike.
+ */
+function fairing(radius: number, height: number): THREE.BufferGeometry {
+  const profile: THREE.Vector2[] = [];
+  for (let i = 0; i <= 12; i++) {
+    const t = i / 12;
+    profile.push(new THREE.Vector2(radius * Math.cos((t * Math.PI) / 2) ** 0.8, height * t));
+  }
+  return new THREE.LatheGeometry(profile, 16);
+}
+
+/** One booster: a casing with a conical nose, standing on its own offset from the core axis. */
+function booster(azimuth: number): THREE.BufferGeometry {
+  const nose = SRB_LENGTH * 0.14;
+  const casing = new THREE.CylinderGeometry(SRB_RADIUS, SRB_RADIUS, SRB_LENGTH, 10).translate(0, SRB_LENGTH / 2, 0);
+  const tip = new THREE.ConeGeometry(SRB_RADIUS, nose, 10).translate(0, SRB_LENGTH + nose / 2, 0);
+  return merged([casing, tip]).translate(Math.sin(azimuth) * SRB_AXIS, 0, Math.cos(azimuth) * SRB_AXIS);
+}
+
+/**
+ * Nose points up, base at the origin, so the mesh can simply be lifted by its altitude. Everything
+ * is one geometry in the rocket's white, so the whole vehicle moves as a single object.
+ */
 export function rocketGeometry(): THREE.BufferGeometry {
-  const bodyLength = ROCKET_HEIGHT * 0.62;
-  const noseLength = ROCKET_HEIGHT * 0.22;
-  const finLength = ROCKET_HEIGHT * 0.16;
+  const nozzle = new THREE.CylinderGeometry(
+    NOZZLE_RADIUS * 0.75, NOZZLE_RADIUS, NOZZLE_HEIGHT, 12,
+  ).translate(0, NOZZLE_HEIGHT / 2, 0);
   return merged([
-    new THREE.CylinderGeometry(ROCKET_RADIUS, ROCKET_RADIUS, bodyLength, 16)
-      .translate(0, bodyLength / 2, 0),
-    new THREE.ConeGeometry(ROCKET_RADIUS, noseLength, 16)
-      .translate(0, bodyLength + noseLength / 2, 0),
-    ...[0, 1, 2].map((i) => {
-      const fin = new THREE.BoxGeometry(0.25, finLength, ROCKET_RADIUS * 1.5);
-      fin.translate(ROCKET_RADIUS * 0.9, finLength / 2, 0);
-      return fin.rotateY((i * Math.PI * 2) / 3);
-    }),
+    new THREE.CylinderGeometry(ROCKET_RADIUS, ROCKET_RADIUS, CORE_LENGTH, 16).translate(0, CORE_LENGTH / 2, 0),
+    // The interstage is a separate mesh in the darker band colour, so the fairing starts at its top.
+    fairing(FAIRING_RADIUS, FAIRING_LENGTH).translate(0, CORE_LENGTH + INTERSTAGE, 0),
+    nozzle,
+    ...SRB_AZIMUTHS.map(booster),
   ]);
+}
+
+/** The dark band where the booster ends and the fairing begins. */
+function interstageGeometry(): THREE.BufferGeometry {
+  return new THREE.CylinderGeometry(ROCKET_RADIUS * 1.01, ROCKET_RADIUS * 1.01, INTERSTAGE, 16)
+    .translate(0, CORE_LENGTH + INTERSTAGE / 2, 0);
+}
+
+/** A thin blue ring at the base of the fairing, standing in for the vehicle's painted markings. */
+function accentGeometry(): THREE.BufferGeometry {
+  return new THREE.CylinderGeometry(FAIRING_RADIUS * 1.004, FAIRING_RADIUS * 1.004, ROCKET_HEIGHT * 0.018, 16)
+    .translate(0, CORE_LENGTH + INTERSTAGE + ROCKET_HEIGHT * 0.022, 0);
 }
 
 /**
@@ -39,6 +97,7 @@ export class RocketLaunchView {
   private readonly group = new THREE.Group();
   private readonly body: THREE.Mesh;
   private readonly band: THREE.Mesh;
+  private readonly accent: THREE.Mesh;
   private readonly flames: THREE.Mesh[] = [];
   private elapsed = 0;
   private launched = false;
@@ -53,18 +112,26 @@ export class RocketLaunchView {
     this.group.add(this.body);
 
     this.band = new THREE.Mesh(
-      new THREE.CylinderGeometry(ROCKET_RADIUS * 1.02, ROCKET_RADIUS * 1.02, ROCKET_HEIGHT * 0.1, 16)
-        .translate(0, ROCKET_HEIGHT * 0.62 * 0.55, 0),
+      interstageGeometry(),
       new THREE.MeshStandardMaterial({ color: ROCKET_BAND, roughness: 0.5 }),
     );
     this.band.castShadow = true;
     this.group.add(this.band);
 
-    // Three nested cones, widest and dimmest outside, pointing down from the engine.
+    this.accent = new THREE.Mesh(
+      accentGeometry(),
+      new THREE.MeshStandardMaterial({ color: ROCKET_ACCENT, roughness: 0.5 }),
+    );
+    this.group.add(this.accent);
+
+    // Three nested cones, widest and dimmest outside, pointing down from the engine. Widths are
+    // fractions of the core radius: the RD-180 exit is about half the booster's diameter, so the
+    // plume is narrow, and scaling it to the old absolute numbers would have made it twice as wide
+    // as the rocket it came out of.
     const layers: ReadonlyArray<[number, number, number]> = [
-      [PLUME_LENGTH, 1.5, FLAME_OUTER],
-      [PLUME_LENGTH * 0.72, 1.0, FLAME_INNER],
-      [PLUME_LENGTH * 0.45, 0.55, 0xffffff],
+      [PLUME_LENGTH, ROCKET_RADIUS * 1.06, FLAME_OUTER],
+      [PLUME_LENGTH * 0.72, ROCKET_RADIUS * 0.72, FLAME_INNER],
+      [PLUME_LENGTH * 0.45, ROCKET_RADIUS * 0.39, 0xffffff],
     ];
     for (const [length, width, color] of layers) {
       const flame = new THREE.Mesh(
