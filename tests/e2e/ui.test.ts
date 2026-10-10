@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
+import { COUNTDOWN_TICK, LAUNCH_CLIMB, LAUNCH_HOLD, LAUNCH_RESET } from '../../src/config';
 import { SCENES } from '../../src/models/scenes';
 import { frame, looksDrawn, stopServer, withPage, withSkyScene } from './harness';
+import type { Page } from 'playwright';
+
+/** Sets the launch countdown length from the concrete scene's World group. */
+async function setCountFrom(page: Page, value: string): Promise<void> {
+  const from = page.getByLabel(/Count down from/);
+  await from.fill(value);
+  await from.dispatchEvent('input');
+  await page.waitForTimeout(150);
+}
 
 after(async () => {
   await stopServer();
@@ -118,18 +128,20 @@ test('launching the rocket takes it off the pad and puts it back', async () => {
   await withPage(async (page) => {
     await page.getByRole('tab', { name: SCENES.concrete.label }).click();
     await page.waitForTimeout(600);
+    // Count from three, so this does not wait out eleven numbers. The default is ten.
+    await setCountFrom(page, '3');
     const button = page.getByRole('button', { name: 'Launch rocket' });
 
     const onPad = await frame(page);
     await button.click();
-    // The spoken count is 3 x 1.1s, then hold 0.9s before the climb starts, so wait past all of
-    // that: at 5.5s the rocket is well clear of the pad.
-    await page.waitForTimeout(5500);
+    // Wait past the count and the hold, so the rocket is well clear of the pad. Derived from the
+    // timings rather than hardcoded, which is what let this drift when the count changed.
+    await page.waitForTimeout((COUNTDOWN_TICK * 3 + LAUNCH_HOLD) * 1000 + 2500);
     const inFlight = await frame(page);
     assert.notDeepEqual(inFlight, onPad, 'the frame should change while the rocket climbs');
 
-    // Count + hold + climb + reset is about 10.5s, after which the pad is ready again.
-    await page.waitForTimeout(7000);
+    // Then wait out the climb and the reset, so the pad is ready again.
+    await page.waitForTimeout((LAUNCH_CLIMB + LAUNCH_RESET) * 1000 + 1500);
     const reset = await frame(page);
     assert.notDeepEqual(reset, inFlight, 'the burst should have changed the frame');
   });
@@ -153,7 +165,7 @@ test('the launch is counted down aloud before it fires', async () => {
     await page.waitForTimeout(500);
     // The default count is from ten, so the whole sequence has to be waited out.
     await page.getByRole('button', { name: 'Launch rocket' }).click();
-    await page.waitForTimeout(12_500);
+    await page.waitForTimeout(COUNTDOWN_TICK * 10 * 1000 + 2000);
 
     const spoken = await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken);
     assert.deepEqual(
@@ -177,12 +189,9 @@ test('the countdown follows the chosen language', async () => {
     await page.waitForTimeout(500);
     await page.getByLabel('Countdown language').selectOption('fr');
     // Shorten the count so the test does not wait out eleven numbers.
-    const from = page.getByLabel(/Count down from/);
-    await from.fill('3');
-    await from.dispatchEvent('input');
-    await page.waitForTimeout(200);
+    await setCountFrom(page, '3');
     await page.getByRole('button', { name: 'Launch rocket' }).click();
-    await page.waitForTimeout(4200);
+    await page.waitForTimeout(COUNTDOWN_TICK * 3 * 1000 + 900);
 
     const spoken = await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken);
     assert.deepEqual(spoken, ['trois', 'deux', 'un', 'lancement'], 'the count should be in French');
