@@ -72,6 +72,28 @@ test('the burst fires exactly once at any frame rate', () => {
   }
 });
 
+test('back to back launches each burst once', () => {
+  // The pad has to be reusable: the burst is fired off a transition, so the phase has to fall back
+  // to idle between launches or the second one would see no transition and fire nothing.
+  let lastPhase = launchState(0).phase;
+  const counts: number[] = [];
+  for (let launch = 0; launch < 3; launch++) {
+    let bursts = 0;
+    let elapsed = 0;
+    while (elapsed < LAUNCH_DURATION + 1) {
+      const phase = launchState(elapsed).phase;
+      if (phase === 'burst' && lastPhase !== 'burst') bursts++;
+      lastPhase = phase;
+      elapsed += 1 / 30;
+    }
+    counts.push(bursts);
+    // The view stops the clock once the sequence is over and starts the next launch from a
+    // negative elapsed time, which is what puts the pad back.
+    lastPhase = launchState(-1).phase;
+  }
+  assert.deepEqual(counts, [1, 1, 1]);
+});
+
 test('a dropped frame mid-climb does not swallow the burst', () => {
   // A backgrounded tab or a long GC pause makes one frame take half a second, which steps clean
   // over the top of the climb.

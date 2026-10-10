@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { COUNTDOWN_TICK, LAUNCH_CLIMB, LAUNCH_HOLD, LAUNCH_RESET } from '../../src/config';
+import { COUNTDOWN_TICK, LAUNCH_CLIMB, LAUNCH_HOLD } from '../../src/config';
 import { SCENES } from '../../src/models/scenes';
 import { frame, looksDrawn, stopServer, withPage, withSkyScene } from './harness';
 import type { Page } from 'playwright';
@@ -131,19 +131,47 @@ test('launching the rocket takes it off the pad and puts it back', async () => {
     // Count from three, so this does not wait out eleven numbers. The default is ten.
     await setCountFrom(page, '3');
     const button = page.getByRole('button', { name: 'Launch rocket' });
+    const t0 = Date.now();
 
     const onPad = await frame(page);
     await button.click();
-    // Wait past the count and the hold, so the rocket is well clear of the pad. Derived from the
-    // timings rather than hardcoded, which is what let this drift when the count changed.
-    await page.waitForTimeout((COUNTDOWN_TICK * 3 + LAUNCH_HOLD) * 1000 + 2500);
-    const inFlight = await frame(page);
-    assert.notDeepEqual(inFlight, onPad, 'the frame should change while the rocket climbs');
 
-    // Then wait out the climb and the reset, so the pad is ready again.
-    await page.waitForTimeout((LAUNCH_CLIMB + LAUNCH_RESET) * 1000 + 1500);
-    const reset = await frame(page);
-    assert.notDeepEqual(reset, inFlight, 'the burst should have changed the frame');
+    // Sample across the whole sequence. A screenshot is the only way to see what was drawn, since
+    // the WebGL buffer is not preserved and cannot be read back from the page, so frames are
+    // compared by how much they compress: a dark static scene compresses hard, and every added
+    // particle makes it bigger. That makes the size a proxy for how much is on screen.
+    const burstAt = COUNTDOWN_TICK * 3 + LAUNCH_HOLD + LAUNCH_CLIMB;
+    const samples: Array<{ t: number; size: number }> = [];
+    for (;;) {
+      const last = samples[samples.length - 1];
+      if (last && last.t >= burstAt + 3) break;
+      const t = (Date.now() - t0) / 1000;
+      samples.push({ t, size: (await frame(page)).length });
+      await page.waitForTimeout(100);
+    }
+
+    const climbing = samples.filter((s) => s.t > burstAt - 1.5 && s.t < burstAt);
+    assert.ok(climbing.length > 0, 'should have sampled while the rocket was climbing');
+
+    // While the rocket climbs the camera tracks it up into empty sky, so the frame gets steadily
+    // simpler and the pad leaves it. The burst reverses that sharply, which is what distinguishes
+    // it from the plume, which brightens the frame gradually.
+    const simplest = Math.min(...climbing.map((s) => s.size));
+    const after = samples.filter((s) => s.t >= burstAt && s.t <= burstAt + 1.5);
+    const peak = Math.max(...after.map((s) => s.size));
+    assert.ok(
+      peak > simplest * 1.1,
+      `the burst should put a lot back in the frame: ${peak} vs ${simplest} just before`,
+    );
+    assert.ok(peak > onPad.length, 'and more than was on the idle pad');
+
+    // And the pad comes back, so it can launch again.
+    const reset = samples.filter((s) => s.t > burstAt + 2.5);
+    assert.ok(reset.length > 0, 'should have sampled after the burst');
+    assert.ok(
+      Math.abs(Math.min(...reset.map((s) => s.size)) - onPad.length) < onPad.length * 0.05,
+      'the pad should look as it did before the launch',
+    );
   });
 });
 
