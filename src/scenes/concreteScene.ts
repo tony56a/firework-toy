@@ -1,4 +1,7 @@
-import { CONCRETE_SIZE, COUNTDOWN_DEFAULT, COUNTDOWN_MAX, COUNTDOWN_MIN, SITE_VIEWER_Z } from '../config';
+import {
+  CONCRETE_SIZE, COUNTDOWN_DEFAULT, COUNTDOWN_MAX, COUNTDOWN_MIN, LAUNCH_BURST_DEFAULT,
+  LAUNCH_BURST_MAX, LAUNCH_BURST_MIN, SITE_VIEWER_Z,
+} from '../config';
 import type * as THREE from 'three';
 import type { AppState } from '../models/appState';
 import type { CameraFraming } from '../models/cameraFraming';
@@ -6,13 +9,15 @@ import { CONCRETE_GROUND } from '../models/concrete';
 import { PALETTES } from '../models/fireworkPalettes';
 import { countdownOver, countdownStep } from '../models/countdown';
 import { phrase, type LanguageId } from '../models/countdownPhrases';
-import { BURST_POINT } from '../models/launch';
+import { shouldTrack } from '../models/launch';
 import { ROCKET_SPOT } from '../models/site';
 import type { FireworkSim } from '../models/fireworks';
 import type { Ground } from '../models/ground';
 import { ConcreteView } from '../render/concreteView';
 import { RocketLaunchView } from '../render/rocketLaunchView';
 import { SiteView } from '../render/siteView';
+import type { SceneHooks } from './hooks';
+import { NO_HOOKS } from './hooks';
 import { SceneBase, type SceneReport } from './sceneBase';
 
 /**
@@ -33,8 +38,12 @@ export class ConcreteScene extends SceneBase {
   private lastSaid: string | null = null;
   /** The count this launch is running, fixed at the moment it started. */
   private activeCount = COUNTDOWN_DEFAULT;
-  /** Injected rather than constructed here, so the app can share one speech voice across scenes. */
-  private readonly speak: (text: string, language: LanguageId) => void;
+  /** The burst height chosen in the UI, and the one this launch is actually running at. */
+  private burstHeight = LAUNCH_BURST_DEFAULT;
+  private activeHeight = LAUNCH_BURST_DEFAULT;
+  /** Injected rather than constructed here, so the app can own the speech voice and the camera. */
+  private readonly speak: SceneHooks['speak'];
+  private readonly track: SceneHooks['track'];
 
   /**
    * The slab is the whole subject, and the viewer stands on it rather than on a table. They stand
@@ -46,14 +55,10 @@ export class ConcreteScene extends SceneBase {
     eye: { x: 0, z: SITE_VIEWER_Z },
   };
 
-  constructor(
-    sim: FireworkSim,
-    report: SceneReport,
-    seed: string,
-    speak: (text: string, language: LanguageId) => void = () => {},
-  ) {
+  constructor(sim: FireworkSim, report: SceneReport, seed: string, hooks: SceneHooks = NO_HOOKS) {
     super(sim, report);
-    this.speak = speak;
+    this.speak = hooks.speak;
+    this.track = hooks.track;
     this.view = new ConcreteView(this.three, seed);
     this.site = new SiteView(this.three, seed);
     this.rocket = new RocketLaunchView(this.three);
@@ -62,6 +67,11 @@ export class ConcreteScene extends SceneBase {
   /** Sets the language the countdown is spoken in. */
   setLanguage(language: LanguageId): void {
     this.language = language;
+  }
+
+  /** Sets how high the rocket climbs before it bursts, clamped to a sane range. */
+  setBurstHeight(height: number): void {
+    this.burstHeight = Math.max(LAUNCH_BURST_MIN, Math.min(LAUNCH_BURST_MAX, Math.round(height)));
   }
 
   /** Sets the number the count starts from, clamped to the range the words cover. */
@@ -90,8 +100,10 @@ export class ConcreteScene extends SceneBase {
     if (this.counting >= 0 || this.rocket.isLaunching) return;
     this.counting = 0;
     this.lastSaid = null;
-    // Read the count when the launch starts, so changing it mid-count cannot shorten the sequence.
+    // Read both settings when the launch starts, so changing them mid-count cannot alter a
+    // sequence already under way: the rocket would otherwise jump to a new altitude mid-climb.
     this.activeCount = this.countFrom;
+    this.activeHeight = this.burstHeight;
   }
 
   /** The countdown tells the viewer the rocket is imminent, so it holds on the pad. */
@@ -112,12 +124,19 @@ export class ConcreteScene extends SceneBase {
         this.rocket.launch();
       }
     }
-    const state = this.rocket.update(dt);
+    const state = this.rocket.update(dt, this.activeHeight);
     // burstAt, not launchVolley: the rocket has already flown to its apex, so this wants a burst
     // where it is rather than another shell fired from that height.
     if (state.burst) {
-      this.sim.burstAt(ROCKET_SPOT.x, BURST_POINT.y, ROCKET_SPOT.z, PALETTES.warm, 'peony');
+      this.sim.burstAt(ROCKET_SPOT.x, this.activeHeight, ROCKET_SPOT.z, PALETTES.warm, 'peony');
     }
+    // Hand the camera the rocket while it is flying, and take it back once the sequence is over, so
+    // the viewer gets their own view back rather than being left looking at empty sky.
+    this.track(
+      shouldTrack(state.phase)
+        ? { x: ROCKET_SPOT.x, y: 0.35 + state.altitude, z: ROCKET_SPOT.z }
+        : null,
+    );
     super.update(camera, dt);
   }
 }

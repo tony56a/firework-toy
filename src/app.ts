@@ -114,8 +114,11 @@ export class App {
       this.sim,
       { setTreeStats: (text) => this.panel.setTreeStats(text) },
       this.store.get().seed,
-      // Only the concrete scene speaks, but every scene gets the callback and ignores it.
-      (text, language) => this.speech.speak(text, language),
+      // Only the concrete scene speaks or tracks, but every scene gets the hooks and ignores them.
+      {
+        speak: (text, language) => this.speech.speak(text, language),
+        track: (point) => this.rig.setTracking(point),
+      },
     );
     this.scenes.set(id, scene);
     return scene;

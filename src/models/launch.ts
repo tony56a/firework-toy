@@ -1,4 +1,4 @@
-import { LAUNCH_BURST_HEIGHT, LAUNCH_CLIMB, LAUNCH_HOLD, LAUNCH_RESET } from '../config';
+import { LAUNCH_BURST_DEFAULT, LAUNCH_CLIMB, LAUNCH_HOLD, LAUNCH_RESET } from '../config';
 import { clamp } from '../core/random';
 
 /**
@@ -9,6 +9,9 @@ import { clamp } from '../core/random';
  * The sequence is a function of elapsed time rather than accumulated state, which keeps it robust
  * to a dropped frame and makes it trivial to seek: at t = 2s the rocket is in the same place
  * whether it arrived there in 60 steps or 6.
+ *
+ * The burst height is a parameter rather than a constant, so the same code covers any height the
+ * viewer picks.
  */
 
 export type LaunchPhase = 'idle' | 'hold' | 'climb' | 'burst' | 'reset';
@@ -28,16 +31,19 @@ export interface LaunchState {
 const IDLE: LaunchState = { phase: 'idle', altitude: 0, throttle: 0, burst: false, visible: true };
 
 /** Easing that leaves the pad slowly and gains speed, which is how a rocket actually lifts off. */
-function climbHeight(t: number): number {
+function climbHeight(t: number, burstHeight: number): number {
   // t is 0..1 through the climb. Squaring gives the slow start without needing a real integrator.
-  return LAUNCH_BURST_HEIGHT * t * t;
+  return burstHeight * t * t;
 }
 
 /**
- * Where the rocket is `elapsed` seconds into a launch. `elapsed` of 0 or less means nothing has
- * started, and the rocket sits on the pad.
+ * Where the rocket is `elapsed` seconds into a launch bursting at `burstHeight`. An `elapsed` of 0
+ * or less means nothing has started, and the rocket sits on the pad.
  */
-export function launchState(elapsed: number): LaunchState {
+export function launchState(
+  elapsed: number,
+  burstHeight: number = LAUNCH_BURST_DEFAULT,
+): LaunchState {
   if (!(elapsed > 0)) return IDLE;
 
   if (elapsed < LAUNCH_HOLD) {
@@ -51,7 +57,7 @@ export function launchState(elapsed: number): LaunchState {
     const t = sinceClimb / LAUNCH_CLIMB;
     return {
       phase: 'climb',
-      altitude: climbHeight(t),
+      altitude: climbHeight(t, burstHeight),
       throttle: clamp(0.4 + t * 0.6, 0, 1),
       burst: false,
       visible: true,
@@ -62,7 +68,7 @@ export function launchState(elapsed: number): LaunchState {
   const burst = sinceClimb < LAUNCH_CLIMB + 1 / 60;
   return {
     phase: 'burst',
-    altitude: LAUNCH_BURST_HEIGHT,
+    altitude: burstHeight,
     throttle: 0,
     burst,
     visible: false,
@@ -77,5 +83,10 @@ export function launchFinished(elapsed: number): boolean {
   return elapsed >= LAUNCH_DURATION;
 }
 
-/** Where the burst happens, so the fireworks can be launched from there. */
-export const BURST_POINT = { y: LAUNCH_BURST_HEIGHT };
+/**
+ * The phases where the camera should follow the rocket. The hold is included so the view is
+ * already in place before it moves, rather than cutting to it at the moment of liftoff.
+ */
+export function shouldTrack(phase: LaunchPhase): boolean {
+  return phase === 'hold' || phase === 'climb' || phase === 'burst';
+}

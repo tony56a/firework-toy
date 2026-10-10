@@ -53,13 +53,15 @@ export const BUILDING_MAX_DEPTH = 11;
  * The launch sequence, in seconds. Hold clamps the rocket down, then it rises easing away as a real
  * one does, then bursts at apex.
  *
- * The burst height is a compromise: high enough to read as a launch rather than a ground firework,
- * low enough to stay in frame. The orbit camera sits at about y=36 looking down at the pad, so
- * anything much above this bursts behind the viewer.
+ * The burst height is adjustable rather than fixed, because the camera now follows the rocket and
+ * there is no longer a height that would otherwise fall outside the frame. The floor is roughly
+ * three times the rocket's own height, so the pad is left visibly below the burst.
  */
 export const LAUNCH_HOLD = 0.9;
 export const LAUNCH_CLIMB = 3.4;
-export const LAUNCH_BURST_HEIGHT = 60;
+export const LAUNCH_BURST_DEFAULT = 60;
+export const LAUNCH_BURST_MIN = 40;
+export const LAUNCH_BURST_MAX = 150;
 /** How long the pad stays empty after a launch before the rocket is set up again. */
 export const LAUNCH_RESET = 2.6;
 /**

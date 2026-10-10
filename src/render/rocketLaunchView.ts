@@ -95,9 +95,9 @@ export class RocketLaunchView {
    * Advances the sequence and returns the current state, so the scene can fire the burst through
    * the fireworks simulation at the right moment.
    */
-  update(dt: number): LaunchState {
+  update(dt: number, burstHeight: number): LaunchState {
     this.time += dt;
-    const state = launchState(this.launched ? this.elapsed : -1);
+    const state = launchState(this.launched ? this.elapsed : -1, burstHeight);
     if (this.launched) {
       this.elapsed += dt;
       // launchFinished owns the reset timing, so this cannot drift from the model.

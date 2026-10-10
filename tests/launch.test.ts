@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  CONCRETE_SIZE, LAUNCH_BURST_HEIGHT, LAUNCH_CLIMB, LAUNCH_HOLD, PAD_RADIUS, PLUME_LENGTH,
-  ROCKET_HEIGHT, SITE_VIEWER_Z, TOWER_OFFSET,
+  CONCRETE_SIZE, LAUNCH_BURST_DEFAULT, LAUNCH_BURST_MAX, LAUNCH_BURST_MIN, LAUNCH_CLIMB,
+  LAUNCH_HOLD, PAD_RADIUS, PLUME_LENGTH, ROCKET_HEIGHT, SITE_VIEWER_Z, TOWER_OFFSET,
 } from '../src/config';
-import { launchFinished, launchState, LAUNCH_DURATION } from '../src/models/launch';
+import { launchFinished, launchState, LAUNCH_DURATION, shouldTrack } from '../src/models/launch';
 
 test('nothing has happened before the button is pressed', () => {
   for (const t of [0, -1, -100]) {
@@ -31,7 +31,7 @@ test('the rocket leaves the pad slowly, then gains speed', () => {
   assert.ok(early.altitude < late.altitude);
   // Ease-out at the start: the first quarter of the climb covers less than a quarter of the height.
   assert.ok(
-    early.altitude < LAUNCH_BURST_HEIGHT * 0.25,
+    early.altitude < LAUNCH_BURST_DEFAULT * 0.25,
     `first quarter reached ${early.altitude}, too high for an easing climb`,
   );
 });
@@ -39,7 +39,7 @@ test('the rocket leaves the pad slowly, then gains speed', () => {
 test('the rocket reaches the burst altitude and bursts once', () => {
   const atTop = launchState(LAUNCH_HOLD + LAUNCH_CLIMB);
   assert.equal(atTop.phase, 'burst');
-  assert.ok(Math.abs(atTop.altitude - LAUNCH_BURST_HEIGHT) < 1e-9);
+  assert.ok(Math.abs(atTop.altitude - LAUNCH_BURST_DEFAULT) < 1e-9);
   assert.equal(atTop.burst, true, 'the burst should happen at the top');
   assert.equal(atTop.visible, false, 'the rocket is gone once it bursts');
   // And only that frame: the very next moment must not burst again.
@@ -47,8 +47,51 @@ test('the rocket reaches the burst altitude and bursts once', () => {
   assert.equal(launchState(LAUNCH_HOLD + LAUNCH_CLIMB + 0.5).burst, false);
 });
 
-test('the burst happens above the rocket', () => {
-  assert.ok(LAUNCH_BURST_HEIGHT > ROCKET_HEIGHT, 'it should burst above the rocket');
+test('every selectable burst height clears the rocket', () => {
+  for (const height of [LAUNCH_BURST_MIN, LAUNCH_BURST_DEFAULT, LAUNCH_BURST_MAX]) {
+    assert.ok(height > ROCKET_HEIGHT, `a burst at ${height} would be at or below the rocket`);
+  }
+});
+
+test('the burst goes wherever the chosen height says, not a fixed altitude', () => {
+  for (const height of [LAUNCH_BURST_MIN, 90, LAUNCH_BURST_MAX]) {
+    const atTop = launchState(LAUNCH_HOLD + LAUNCH_CLIMB, height);
+    assert.equal(atTop.phase, 'burst');
+    assert.ok(
+      Math.abs(atTop.altitude - height) < 1e-9,
+      `asked for ${height} but the rocket stopped at ${atTop.altitude}`,
+    );
+  }
+});
+
+test('the climb still eases out at any height', () => {
+  // A higher burst must not make liftoff abrupt, so the easing has to scale with the height.
+  for (const height of [LAUNCH_BURST_MIN, LAUNCH_BURST_MAX]) {
+    const early = launchState(LAUNCH_HOLD + LAUNCH_CLIMB * 0.25, height);
+    assert.ok(
+      early.altitude < height * 0.25,
+      `at ${height} the first quarter reached ${early.altitude}, too high for an easing climb`,
+    );
+  }
+});
+
+test('altitude never leaves the requested range at any height', () => {
+  for (const height of [LAUNCH_BURST_MIN, LAUNCH_BURST_MAX]) {
+    for (let t = 0; t <= LAUNCH_DURATION; t += 1 / 60) {
+      const s = launchState(t, height);
+      assert.ok(s.altitude >= 0 && s.altitude <= height + 1e-9, `altitude ${s.altitude} outside 0..${height}`);
+    }
+  }
+});
+
+test('the camera follows the rocket from the moment the clamps hold it', () => {
+  // Tracking at the hold rather than at liftoff means the view is already in place and does not
+  // cut at the exact moment the rocket moves.
+  assert.equal(shouldTrack('hold'), true);
+  assert.equal(shouldTrack('climb'), true);
+  assert.equal(shouldTrack('burst'), true);
+  assert.equal(shouldTrack('idle'), false);
+  assert.equal(shouldTrack('reset'), false);
 });
 
 test('the pad resets after the sequence, so it can launch again', () => {
@@ -64,7 +107,7 @@ test('altitude never goes backwards or leaves the world', () => {
   for (let t = 0; t <= LAUNCH_DURATION; t += 1 / 120) {
     const s = launchState(t);
     assert.ok(s.altitude >= previous - 1e-9, `altitude dipped at t=${t}`);
-    assert.ok(s.altitude >= 0 && s.altitude <= LAUNCH_BURST_HEIGHT + 1e-9);
+    assert.ok(s.altitude >= 0 && s.altitude <= LAUNCH_BURST_DEFAULT + 1e-9);
     assert.ok(s.throttle >= 0 && s.throttle <= 1, `throttle out of range at t=${t}`);
     previous = s.altitude;
   }

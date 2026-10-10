@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { TABLE_DEPTH, TABLE_HEIGHT, TABLE_WIDTH, WORLD_SIZE } from '../src/config';
+import * as THREE from 'three';
+import { CameraRig } from '../src/render/camera/rig';
+import { CONCRETE_GROUND } from '../src/models/concrete';
+import {
+  LAUNCH_BURST_MAX, LAUNCH_BURST_MIN, TABLE_DEPTH, TABLE_HEIGHT, TABLE_WIDTH, WORLD_SIZE,
+} from '../src/config';
 import { cameraConstants, type CameraFraming } from '../src/models/cameraFraming';
 
 const FOREST: CameraFraming = { radius: WORLD_SIZE / 2, surface: 0 };
@@ -53,4 +58,62 @@ test('every derived distance is finite, non-zero, and points the right way', () 
   // The ridge camera should sit off to one side, not down the middle.
   assert.ok(cameraConstants(FOREST).ridgeX < 0 && cameraConstants(FOREST).ridgeZ > 0);
   assert.ok(cameraConstants(SKY).ridgeX < 0 && cameraConstants(SKY).ridgeZ > 0);
+});
+
+test('a tracked point stays on screen across the whole burst height range', () => {
+  // The reason the camera follows the rocket: with a fixed view, a burst at 150 is far above any
+  // camera that also has to keep the pad in shot. Projecting the target checks it is actually in
+  // frame, which is the property that matters and is easy to break by moving the rig.
+  const rig = new CameraRig();
+  rig.setFraming({ radius: 65, surface: 0, eye: { x: 0, z: -30 } });
+  rig.setAspect(1.6);
+  const point = new THREE.Vector3();
+
+  for (const height of [LAUNCH_BURST_MIN, LAUNCH_BURST_MAX]) {
+    for (const y of [0, height * 0.25, height * 0.5, height]) {
+      rig.setTracking({ x: 0, y, z: 0 });
+      rig.update(1 / 60, CONCRETE_GROUND);
+      // project() needs the world matrix, and nothing renders in a unit test.
+      rig.camera.updateMatrixWorld();
+      point.set(0, y, 0).project(rig.camera);
+      assert.ok(Math.abs(point.x) <= 1, `tracked point left the frame sideways at y=${y}`);
+      assert.ok(Math.abs(point.y) <= 1, `tracked point left the frame vertically at y=${y}`);
+    }
+  }
+});
+
+test('tracking takes precedence over the mode, and clearing it gives the mode back', () => {
+  const rig = new CameraRig();
+  rig.setFraming({ radius: 65, surface: 0, eye: { x: 0, z: -30 } });
+  rig.setAspect(1.6);
+  rig.setMode('overhead');
+
+  rig.update(1 / 60, CONCRETE_GROUND);
+  const overhead = rig.camera.position.clone();
+
+  rig.setTracking({ x: 0, y: 80, z: 0 });
+  assert.equal(rig.isTracking, true);
+  rig.update(1 / 60, CONCRETE_GROUND);
+  const tracking = rig.camera.position.clone();
+  assert.ok(tracking.distanceTo(overhead) > 1, 'tracking should move the camera off the mode');
+
+  rig.setTracking(null);
+  assert.equal(rig.isTracking, false);
+  rig.update(1 / 60, CONCRETE_GROUND);
+  assert.ok(
+    rig.camera.position.distanceTo(overhead) < 0.001,
+    'the original mode should be restored exactly',
+  );
+});
+
+test('the tracking camera never sinks below the ground', () => {
+  // A low burst would otherwise put the camera underground while looking up at the rocket.
+  const rig = new CameraRig();
+  rig.setFraming({ radius: 65, surface: 0, eye: { x: 0, z: -30 } });
+  rig.setAspect(1.6);
+  for (const y of [0, 1, 5, LAUNCH_BURST_MIN]) {
+    rig.setTracking({ x: 0, y, z: 0 });
+    rig.update(1 / 60, CONCRETE_GROUND);
+    assert.ok(rig.camera.position.y > 0, `camera sank to y=${rig.camera.position.y} tracking y=${y}`);
+  }
 });

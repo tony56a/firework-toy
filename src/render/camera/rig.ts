@@ -23,6 +23,8 @@ export class CameraRig {
   private autoMotion = true;
   private motionTime = 0;
   private framing: CameraFraming = DEFAULT_FRAMING;
+  /** When set, the camera follows this point instead of obeying the chosen mode. */
+  private tracking: { x: number; y: number; z: number } | null = null;
   private orbit = { theta: 0.8, phi: 1.05, radius: cameraConstants(DEFAULT_FRAMING).orbitRadius };
   private readonly look = { yaw: 0.6, pitch: 0.02 };
   private readonly scratch = new THREE.Vector3();
@@ -33,6 +35,20 @@ export class CameraRig {
     this.autoMotion = true;
     this.camera.fov = CAMERA_MODES[mode].fov;
     this.camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Follows a point rather than the chosen mode, and returns to that mode when passed null. This is
+   * a transient override for a launch, not a mode of its own: the pad does not need a tracking
+   * button, and remembering what the viewer was doing matters more than the label.
+   */
+  setTracking(target: { x: number; y: number; z: number } | null): void {
+    this.tracking = target;
+  }
+
+  /** Whether the camera is currently following something rather than obeying its mode. */
+  get isTracking(): boolean {
+    return this.tracking !== null;
   }
 
   /**
@@ -75,6 +91,9 @@ export class CameraRig {
     if (this.ambient) this.motionTime += dt;
     this.camera.up.copy(UP);
     const k = cameraConstants(this.framing);
+    // Tracking takes precedence over the mode, so the camera follows a launch from whichever view
+    // the viewer happened to be in and hands control back when it ends.
+    if (this.tracking) return this.updateTracking(ground, k);
     switch (this.mode) {
       case 'orbit': return this.updateOrbit(dt, ground);
       case 'ground': return this.updateGround(dt, ground, k);
@@ -82,6 +101,22 @@ export class CameraRig {
       case 'overhead': return this.updateOverhead(k);
       case 'ridge': return this.updateRidge(ground, k);
     }
+  }
+
+  /**
+   * Follows the tracked point: holds the orbit camera's azimuth so engaging feels like the view
+   * tilting up from where it already was, and rises most of the way with the target so it climbs
+   * through the frame against the sky rather than shrinking into the distance.
+   */
+  private updateTracking(ground: Ground, k: CameraConstants): void {
+    const t = this.tracking!;
+    const r = k.orbitRadius * 0.85;
+    const x = r * Math.sin(this.orbit.theta);
+    const z = r * Math.cos(this.orbit.theta);
+    // Never drop below the surface, or a low burst would put the camera underground.
+    const y = Math.max(ground.heightAt(x, z) + k.eyeOffset, t.y * 0.65);
+    this.camera.position.set(x, y, z);
+    this.camera.lookAt(t.x, t.y, t.z);
   }
 
   /** Horizontal unit vector the camera faces, falling back to screen-up when looking straight down. */

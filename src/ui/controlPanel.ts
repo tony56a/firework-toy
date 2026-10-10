@@ -1,4 +1,6 @@
-import { COUNTDOWN_MAX, COUNTDOWN_MIN, MAX_TREES, TRAIN_SPEED_MAX } from '../config';
+import {
+  COUNTDOWN_MAX, COUNTDOWN_MIN, LAUNCH_BURST_MAX, LAUNCH_BURST_MIN, MAX_TREES, TRAIN_SPEED_MAX,
+} from '../config';
 import { Emitter } from '../core/emitter';
 import type { Store } from '../core/store';
 import type { AppState } from '../models/appState';
@@ -63,6 +65,7 @@ export class ControlPanel extends Emitter<PanelActions> {
         this.checkbox('Ambient movement', 'ambientMotion'),
         this.inScene('sky', this.slider('Train speed', 'trainSpeed', 0, TRAIN_SPEED_MAX, 0.1)),
         this.inAnyScene(['forest', 'concrete'], this.button('Randomize', 'randomize')),
+        this.inScene('concrete', this.slider('Burst height', 'burstHeight', LAUNCH_BURST_MIN, LAUNCH_BURST_MAX, 5)),
         this.inScene('concrete', this.button('Launch rocket', 'launchRocket')),
         this.inScene('concrete', this.slider('Count down from', 'countDownFrom', COUNTDOWN_MIN, COUNTDOWN_MAX, 1)),
         this.inScene('concrete', this.select(
