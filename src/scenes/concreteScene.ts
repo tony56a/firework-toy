@@ -1,4 +1,4 @@
-import { CONCRETE_SIZE, SITE_VIEWER_Z } from '../config';
+import { CONCRETE_SIZE, COUNTDOWN_DEFAULT, COUNTDOWN_MAX, COUNTDOWN_MIN, SITE_VIEWER_Z } from '../config';
 import type * as THREE from 'three';
 import type { AppState } from '../models/appState';
 import type { CameraFraming } from '../models/cameraFraming';
@@ -27,8 +27,12 @@ export class ConcreteScene extends SceneBase {
   /** Seconds since the countdown began, or -1 when nothing is counting. */
   private counting = -1;
   private language: LanguageId = 'en';
+  /** The number the count starts from, as chosen in the UI. */
+  private countFrom = COUNTDOWN_DEFAULT;
   /** The last word spoken, so a step is not repeated on the frame after it changes. */
   private lastSaid: string | null = null;
+  /** The count this launch is running, fixed at the moment it started. */
+  private activeCount = COUNTDOWN_DEFAULT;
   /** Injected rather than constructed here, so the app can share one speech voice across scenes. */
   private readonly speak: (text: string, language: LanguageId) => void;
 
@@ -60,6 +64,11 @@ export class ConcreteScene extends SceneBase {
     this.language = language;
   }
 
+  /** Sets the number the count starts from, clamped to the range the words cover. */
+  setCountFrom(n: number): void {
+    this.countFrom = Math.max(COUNTDOWN_MIN, Math.min(COUNTDOWN_MAX, Math.round(n)));
+  }
+
   /** The slab is flat and never changes, so one shared instance describes it. */
   readonly ground: Ground = CONCRETE_GROUND;
 
@@ -81,6 +90,8 @@ export class ConcreteScene extends SceneBase {
     if (this.counting >= 0 || this.rocket.isLaunching) return;
     this.counting = 0;
     this.lastSaid = null;
+    // Read the count when the launch starts, so changing it mid-count cannot shorten the sequence.
+    this.activeCount = this.countFrom;
   }
 
   /** The countdown tells the viewer the rocket is imminent, so it holds on the pad. */
@@ -91,12 +102,12 @@ export class ConcreteScene extends SceneBase {
   update(camera: THREE.Camera, dt: number): void {
     if (this.counting >= 0) {
       this.counting += dt;
-      const step = countdownStep(this.counting);
+      const step = countdownStep(this.counting, this.activeCount);
       if (step.say && step.say !== this.lastSaid) {
         this.lastSaid = step.say;
         this.speak(phrase(step.say, this.language), this.language);
       }
-      if (countdownOver(this.counting)) {
+      if (countdownOver(this.counting, this.activeCount)) {
         this.counting = -1;
         this.rocket.launch();
       }

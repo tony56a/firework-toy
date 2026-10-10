@@ -70,6 +70,10 @@ export const LAUNCH_RESET = 2.6;
 export const SITE_VIEWER_Z = -30;
 /** Seconds between spoken numbers in the launch countdown. */
 export const COUNTDOWN_TICK = 1.1;
+/** The count a launch starts from, and the longest and shortest it can be set to. */
+export const COUNTDOWN_DEFAULT = 10;
+export const COUNTDOWN_MIN = 3;
+export const COUNTDOWN_MAX = 10;
 
 /** Peak engine plume length, and how fast it flickers. */
 export const PLUME_LENGTH = 7;

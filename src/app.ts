@@ -17,7 +17,7 @@ import { ControlPanel } from './ui/controlPanel';
 const ALL_KEYS = Object.keys(DEFAULT_STATE) as Array<keyof AppState>;
 
 /** A scene with a launch pad. ConcreteScene is the only one, but the app asks for the capability. */
-type LaunchSite = Pick<ConcreteScene, 'launch' | 'setLanguage'>;
+type LaunchSite = Pick<ConcreteScene, 'launch' | 'setLanguage' | 'setCountFrom'>;
 
 function isLaunchSite(scene: Scene): scene is Scene & LaunchSite {
   return scene instanceof ConcreteScene;
@@ -82,6 +82,7 @@ export class App {
     }
     this.active.react(state, changed);
     this.launchSite()?.setLanguage(state.countDownLanguage);
+    this.launchSite()?.setCountFrom(state.countDownFrom);
     if (has('cameraMode')) this.rig.setMode(state.cameraMode);
     if (has('ambientMotion')) this.rig.setAmbient(state.ambientMotion);
     if (has('clapSensitivity')) this.clap.setSensitivity(state.clapSensitivity);

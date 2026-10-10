@@ -1,4 +1,4 @@
-import { TRAIN_SPEED_DEFAULT } from '../config';
+import { COUNTDOWN_DEFAULT, TRAIN_SPEED_DEFAULT } from '../config';
 import type { CameraMode } from './cameraModes';
 import type { LanguageId } from './countdownPhrases';
 import type { PaletteId } from './fireworkPalettes';
@@ -24,6 +24,7 @@ export interface AppState {
   autoLaunchInterval: number;
   trainSpeed: number;
   countDownLanguage: LanguageId;
+  countDownFrom: number;
   showRockets: boolean;
   micEnabled: boolean;
   clapSensitivity: number;
@@ -46,6 +47,7 @@ export const DEFAULT_STATE: AppState = {
   autoLaunchInterval: 1.5,
   trainSpeed: TRAIN_SPEED_DEFAULT,
   countDownLanguage: 'en',
+  countDownFrom: COUNTDOWN_DEFAULT,
   showRockets: true,
   micEnabled: false,
   clapSensitivity: 7,

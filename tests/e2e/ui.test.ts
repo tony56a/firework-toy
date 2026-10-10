@@ -151,11 +151,16 @@ test('the launch is counted down aloud before it fires', async () => {
 
     await page.getByRole('tab', { name: SCENES.concrete.label }).click();
     await page.waitForTimeout(500);
+    // The default count is from ten, so the whole sequence has to be waited out.
     await page.getByRole('button', { name: 'Launch rocket' }).click();
-    await page.waitForTimeout(3800);
+    await page.waitForTimeout(12_500);
 
     const spoken = await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken);
-    assert.deepEqual(spoken, ['three', 'two', 'one', 'launch'], 'the count should be spoken in order');
+    assert.deepEqual(
+      spoken,
+      ['ten', 'nine', 'eight', 'seven', 'six', 'five', 'four', 'three', 'two', 'one', 'launch'],
+      'the count should run from ten down to launch',
+    );
   });
 });
 
@@ -171,9 +176,13 @@ test('the countdown follows the chosen language', async () => {
     await page.getByRole('tab', { name: SCENES.concrete.label }).click();
     await page.waitForTimeout(500);
     await page.getByLabel('Countdown language').selectOption('fr');
+    // Shorten the count so the test does not wait out eleven numbers.
+    const from = page.getByLabel(/Count down from/);
+    await from.fill('3');
+    await from.dispatchEvent('input');
     await page.waitForTimeout(200);
     await page.getByRole('button', { name: 'Launch rocket' }).click();
-    await page.waitForTimeout(3800);
+    await page.waitForTimeout(4200);
 
     const spoken = await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken);
     assert.deepEqual(spoken, ['trois', 'deux', 'un', 'lancement'], 'the count should be in French');
