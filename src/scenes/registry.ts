@@ -2,6 +2,7 @@ import type { FireworkSim } from '../models/fireworks';
 import type { SceneId } from '../models/scenes';
 import { ConcreteScene } from './concreteScene';
 import { ForestScene } from './forestScene';
+import { SeaScene } from './seaScene';
 import type { Scene } from './scene';
 import type { SceneReport } from './sceneBase';
 import { SkyScene } from './skyScene';
@@ -28,5 +29,7 @@ export function createScene(
       return new SkyScene(sim, report);
     case 'concrete':
       return new ConcreteScene(sim, report, seed, hooks);
+    case 'sea':
+      return new SeaScene(sim, report, seed);
   }
 }

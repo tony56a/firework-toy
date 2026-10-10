@@ -1,5 +1,6 @@
 import {
-  COUNTDOWN_MAX, COUNTDOWN_MIN, LAUNCH_BURST_MAX, LAUNCH_BURST_MIN, MAX_TREES, TRAIN_SPEED_MAX,
+  BOAT_SPEED_MAX, COUNTDOWN_MAX, COUNTDOWN_MIN, LAUNCH_BURST_MAX, LAUNCH_BURST_MIN, MAX_TREES,
+  TRAIN_SPEED_MAX,
 } from '../config';
 import { Emitter } from '../core/emitter';
 import type { Store } from '../core/store';
@@ -59,12 +60,13 @@ export class ControlPanel extends Emitter<PanelActions> {
     const titlebar = el('div', { className: 'titlebar' }, el('span', { textContent: 'Controls' }), hide);
     const groupDefs: ReadonlyArray<{ id: string; label: string; fields: ReadonlyArray<HTMLElement> }> = [
       { id: 'world', label: 'World', fields: [
-        this.inAnyScene(['forest', 'concrete'], this.seedField()),
+        this.inAnyScene(['forest', 'concrete', 'sea'], this.seedField()),
         this.inScene('forest', this.slider('Trees', 'treeCount', 0, MAX_TREES, 50)),
         this.select('Time of day', 'timeOfDay', TIME_IDS.map((id) => [id, TIME_PRESETS[id].label])),
         this.checkbox('Ambient movement', 'ambientMotion'),
         this.inScene('sky', this.slider('Train speed', 'trainSpeed', 0, TRAIN_SPEED_MAX, 0.1)),
-        this.inAnyScene(['forest', 'concrete'], this.button('Randomize', 'randomize')),
+        this.inScene('sea', this.slider('Boat speed', 'boatSpeed', 0, BOAT_SPEED_MAX, 0.1)),
+        this.inAnyScene(['forest', 'concrete', 'sea'], this.button('Randomize', 'randomize')),
         this.inScene('concrete', this.slider('Burst height', 'burstHeight', LAUNCH_BURST_MIN, LAUNCH_BURST_MAX, 5)),
         this.inScene('concrete', this.button('Launch rocket', 'launchRocket')),
         this.inScene('concrete', this.slider('Count down from', 'countDownFrom', COUNTDOWN_MIN, COUNTDOWN_MAX, 1)),

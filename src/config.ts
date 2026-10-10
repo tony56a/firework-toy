@@ -82,6 +82,51 @@ export const COUNTDOWN_DEFAULT = 10;
 export const COUNTDOWN_MIN = 3;
 export const COUNTDOWN_MAX = 10;
 
+// The sea: a walled basin of water with a boat working a course inside it. The basin is bounded on
+// purpose, so the water reads as a thing with edges rather than a horizon that goes on forever.
+export const SEA_SIZE = 150;
+/** Depth from the waterline down to the top of the basin floor. */
+export const SEA_DEPTH = 5;
+export const SEA_FLOOR_THICKNESS = 2;
+/** How far the walls stand above the waterline, and how thick they are. */
+export const SEA_RIM_HEIGHT = 1.8;
+export const SEA_RIM_THICKNESS = 4;
+export const SEA_SEGMENTS = 120;
+/** Overall swell height. Each wave in the sea model is a fraction of this. */
+export const WAVE_AMPLITUDE = 0.5;
+/**
+ * Waves are eased to nothing across this band at the walls, so the water meets them flat instead of
+ * clipping through them.
+ */
+export const WAVE_EDGE_BAND = 10;
+export const BOAT_LENGTH = 8;
+export const BOAT_BEAM = 2.6;
+export const BOAT_SPEED_DEFAULT = 2.2;
+export const BOAT_SPEED_MAX = 6;
+
+/**
+ * The downloaded low-poly fish, where the app looks for it. Served from `public/` so it sits beside
+ * the app as a plain file. If it is missing the sea falls back to a fish drawn in code, so a fresh
+ * clone still runs.
+ *
+ * "Low Poly Fish" by Floreswa, CC Attribution (CC BY 4.0), from Sketchfab. Attribution is required by
+ * the licence: https://sketchfab.com/3d-models/low-poly-fish-ad9f6c5834ce491fa3a891010b781ae6
+ */
+export const FISH_MODEL_URL = 'models/low-poly-fish.glb';
+
+// The fish in the sea. Big enough to read as fish from the orbit camera rather than as specks, and
+// sized against the boat so the two look like they belong in the same water: a fish comes up roughly
+// half the length of the hull it is swimming past.
+export const FISH_LENGTH = 4;
+export const FISH_DEPTH = 1.3;
+/**
+ * Which end of a downloaded fish's longest axis its head is at. A bounding box cannot tell you —
+ * a fish is not symmetric front to back but a box is — so this was measured off the file, by finding
+ * which end the eyes sit on. Every one of the three fish in the pack agrees.
+ */
+export const FISH_NOSE_END = 'negative' as const;
+
+
 /** Peak engine plume length, and how fast it flickers. */
 export const PLUME_LENGTH = 7;
 export const PLUME_FLICKER = 18;
