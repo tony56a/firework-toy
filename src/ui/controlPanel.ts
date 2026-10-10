@@ -1,6 +1,6 @@
 import {
-  BOAT_SPEED_MAX, COUNTDOWN_MAX, COUNTDOWN_MIN, LAUNCH_BURST_MAX, LAUNCH_BURST_MIN, MAX_TREES,
-  TRAIN_SPEED_MAX,
+  BOAT_SPEED_MAX, COUNTDOWN_MAX, COUNTDOWN_MIN, HERD_SPEED_MAX, LAUNCH_BURST_MAX, LAUNCH_BURST_MIN,
+  MAX_ACACIAS, MAX_HERD, MAX_TREES, TRAIN_SPEED_MAX,
 } from '../config';
 import { Emitter } from '../core/emitter';
 import type { Store } from '../core/store';
@@ -46,7 +46,8 @@ export class ControlPanel extends Emitter<PanelActions> {
   private readonly sceneTabButtons = new Map<SceneId, HTMLElement>();
   private readonly groupButtons = new Map<string, HTMLElement>();
   private readonly groupPanels = new Map<string, HTMLElement>();
-  private readonly treeStats = el('div', { className: 'muted' });
+  /** One readout per scene, rather than a named field each time a scene is added. */
+  private readonly stats = new Map<SceneId, HTMLElement>();
   private readonly micStatus = el('div', { className: 'muted', textContent: 'Mic off' });
   private readonly meter = el('div', { className: 'meter' }, el('i'));
 
@@ -60,13 +61,16 @@ export class ControlPanel extends Emitter<PanelActions> {
     const titlebar = el('div', { className: 'titlebar' }, el('span', { textContent: 'Controls' }), hide);
     const groupDefs: ReadonlyArray<{ id: string; label: string; fields: ReadonlyArray<HTMLElement> }> = [
       { id: 'world', label: 'World', fields: [
-        this.inAnyScene(['forest', 'concrete', 'sea'], this.seedField()),
+        this.inAnyScene(['forest', 'concrete', 'sea', 'savanna'], this.seedField()),
         this.inScene('forest', this.slider('Trees', 'treeCount', 0, MAX_TREES, 50)),
         this.select('Time of day', 'timeOfDay', TIME_IDS.map((id) => [id, TIME_PRESETS[id].label])),
         this.checkbox('Ambient movement', 'ambientMotion'),
         this.inScene('sky', this.slider('Train speed', 'trainSpeed', 0, TRAIN_SPEED_MAX, 0.1)),
         this.inScene('sea', this.slider('Boat speed', 'boatSpeed', 0, BOAT_SPEED_MAX, 0.1)),
-        this.inAnyScene(['forest', 'concrete', 'sea'], this.button('Randomize', 'randomize')),
+        this.inScene('savanna', this.slider('Acacias', 'acaciaCount', 0, MAX_ACACIAS, 5)),
+        this.inScene('savanna', this.slider('Herd size', 'herdSize', 0, MAX_HERD, 1)),
+        this.inScene('savanna', this.slider('Herd speed', 'herdSpeed', 0, HERD_SPEED_MAX, 0.1)),
+        this.inAnyScene(['forest', 'concrete', 'sea', 'savanna'], this.button('Randomize', 'randomize')),
         this.inScene('concrete', this.slider('Burst height', 'burstHeight', LAUNCH_BURST_MIN, LAUNCH_BURST_MAX, 5)),
         this.inScene('concrete', this.button('Launch rocket', 'launchRocket')),
         this.inScene('concrete', this.slider('Count down from', 'countDownFrom', COUNTDOWN_MIN, COUNTDOWN_MAX, 1)),
@@ -75,7 +79,8 @@ export class ControlPanel extends Emitter<PanelActions> {
           'countDownLanguage',
           LANGUAGE_IDS.map((id) => [id, LANGUAGE_LABELS[id]]),
         )),
-        this.inScene('forest', this.treeStats),
+        this.inScene('forest', this.sceneStats('forest')),
+        this.inScene('savanna', this.sceneStats('savanna')),
       ] },
       { id: 'camera', label: 'Camera', fields: [
         this.cameraButtons(),
@@ -219,7 +224,22 @@ export class ControlPanel extends Emitter<PanelActions> {
     };
   }
 
-  setTreeStats(text: string): void { this.treeStats.textContent = text; }
+  /**
+   * The muted readout a scene fills in with a count of what it drew.
+   *
+   * One node per scene, created on first request: two scene wrappers around the same element would
+   * both set its hidden flag on every sync, and whichever ran last would win in both scenes.
+   */
+  private sceneStats(scene: SceneId): HTMLElement {
+    const node = el('div', { className: 'muted' });
+    this.stats.set(scene, node);
+    return node;
+  }
+
+  setStats(scene: SceneId, text: string): void {
+    const node = this.stats.get(scene);
+    if (node) node.textContent = text;
+  }
   setMicStatus(text: string): void { this.micStatus.textContent = text; }
   setMeter(rms: number, hit: boolean): void {
     (this.meter.firstElementChild as HTMLElement).style.width = `${Math.min(100, rms * 1500)}%`;

@@ -44,6 +44,6 @@ export class ForestScene extends SceneBase {
     const trees = scatterTrees(this.terrain, state.seed, state.treeCount);
     this.treeView.set(trees);
     const pines = trees.filter((t) => t.kind === 'pine').length;
-    this.report.setTreeStats(`${trees.length} trees (${pines} pine, ${trees.length - pines} oak)`);
+    this.report.setStats('forest', `${trees.length} trees (${pines} pine, ${trees.length - pines} oak)`);
   }
 }

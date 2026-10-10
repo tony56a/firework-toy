@@ -112,7 +112,7 @@ export class App {
     const scene = createScene(
       id,
       this.sim,
-      { setTreeStats: (text) => this.panel.setTreeStats(text) },
+      { setStats: (scene, text) => this.panel.setStats(scene, text) },
       this.store.get().seed,
       // Only the concrete scene speaks or tracks, but every scene gets the hooks and ignores them.
       {

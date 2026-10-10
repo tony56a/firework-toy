@@ -77,10 +77,20 @@ export function withPage(body: (page: Page) => Promise<void>): Promise<void> {
   return withBrowser((page) => body(page));
 }
 
+/** Switches to the savanna scene before running `body`. */
+export async function withSavannaScene(body: (page: Page) => Promise<void>): Promise<void> {
+  await withScene(SCENES.savanna.label, body);
+}
+
 /** Switches to the sky scene before running `body`. */
 export async function withSkyScene(body: (page: Page) => Promise<void>): Promise<void> {
+  await withScene(SCENES.sky.label, body);
+}
+
+/** Switches to a scene by its tab label before running `body`. */
+export async function withScene(label: string, body: (page: Page) => Promise<void>): Promise<void> {
   await withPage(async (page) => {
-    await page.getByRole('tab', { name: SCENES.sky.label }).click();
+    await page.getByRole('tab', { name: label }).click();
     await page.waitForTimeout(800);
     await body(page);
   });

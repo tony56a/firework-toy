@@ -1,4 +1,6 @@
-import { BOAT_SPEED_DEFAULT, COUNTDOWN_DEFAULT, LAUNCH_BURST_DEFAULT, TRAIN_SPEED_DEFAULT } from '../config';
+import {
+  BOAT_SPEED_DEFAULT, COUNTDOWN_DEFAULT, HERD_SPEED_DEFAULT, LAUNCH_BURST_DEFAULT, TRAIN_SPEED_DEFAULT,
+} from '../config';
 import type { CameraMode } from './cameraModes';
 import type { LanguageId } from './concrete/countdownPhrases';
 import type { PaletteId } from './fireworkPalettes';
@@ -24,6 +26,9 @@ export interface AppState {
   autoLaunchInterval: number;
   trainSpeed: number;
   boatSpeed: number;
+  acaciaCount: number;
+  herdSize: number;
+  herdSpeed: number;
   countDownLanguage: LanguageId;
   countDownFrom: number;
   burstHeight: number;
@@ -49,6 +54,9 @@ export const DEFAULT_STATE: AppState = {
   autoLaunchInterval: 1.5,
   trainSpeed: TRAIN_SPEED_DEFAULT,
   boatSpeed: BOAT_SPEED_DEFAULT,
+  acaciaCount: 85,
+  herdSize: 18,
+  herdSpeed: HERD_SPEED_DEFAULT,
   countDownLanguage: 'en',
   countDownFrom: COUNTDOWN_DEFAULT,
   burstHeight: LAUNCH_BURST_DEFAULT,

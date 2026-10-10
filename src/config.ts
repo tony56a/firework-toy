@@ -128,6 +128,31 @@ export const FISH_DEPTH = 1.3;
  */
 export const FISH_FRONT_END: FrontEnd = 'negative';
 
+// The savanna: a wide, flat plain of dry grass with flat-topped acacias standing on it and a herd
+// wandering across it. The ground is much flatter than the forest's, which is the point of a savanna —
+// the interest is what is standing on it rather than what the land is doing.
+export const SAVANNA_SIZE = 170;
+/**
+ * The most acacias the plain will take.
+ *
+ * The scatter is limited by how much room there is between trees rather than by the slider, so this
+ * is the spacing's ceiling and not an arbitrary cap: a slider reaching well past it would do nothing
+ * over most of its travel, which reads as a broken control.
+ */
+export const MAX_ACACIAS = 105;
+export const ACACIA_HEIGHT = 4.6;
+export const HERD_SPEED_DEFAULT = 3.2;
+export const HERD_SPEED_MAX = 9;
+/** Three kinds are dealt round, so a herd past three*2 stops adding to the mix. */
+export const MAX_HERD = 36;
+/**
+ * How far out from the middle of the plain a grazer's patch may sit, as a fraction of the half-width.
+ *
+ * Generous on purpose: the herd has to be spread across the plain rather than gathered in the middle
+ * of it, and each patch's reach is taken off this again so nothing wanders off the edge.
+ */
+export const GRAZE_REACH = 0.62;
+
 
 /** Peak engine plume length, and how fast it flickers. */
 export const PLUME_LENGTH = 7;

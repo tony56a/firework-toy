@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { COUNTDOWN_TICK, LAUNCH_CLIMB, LAUNCH_HOLD } from '../../src/config';
 import { SCENES } from '../../src/models/scenes';
-import { frame, looksDrawn, stopServer, withPage, withSkyScene } from './harness';
+import { frame, looksDrawn, stopServer, withPage, withSavannaScene, withSkyScene } from './harness';
 import type { Page } from 'playwright';
 
 /** Sets the launch countdown length from the concrete scene's World group. */
@@ -47,6 +47,50 @@ test('the train moves when its speed is raised, and stops at zero', async () => 
     await page.waitForTimeout(700);
     const movingB = await frame(page);
     assert.ok(!movingA.equals(movingB), 'a moving train should change the frame');
+  });
+});
+
+test('the savanna scene renders a plain with a herd on it', async () => {
+  await withSavannaScene(async (page) => {
+    const shot = await frame(page);
+    assert.ok(looksDrawn(shot), `canvas looks blank (${shot.length} bytes)`);
+    // The scene reports what it drew, and a savanna with no acacias and no herd is not one.
+    const stats = page.locator('.panel .muted', { hasText: /acacias/ });
+    assert.ok(await stats.isVisible(), 'the scene should say how much it drew');
+    const text = await stats.textContent();
+    const counts = text!.match(/(\d+) acacias, (\d+) grazers/)!;
+    assert.ok(Number(counts[1]) > 0, `no acacias: ${text}`);
+    assert.ok(Number(counts[2]) > 0, `no grazers: ${text}`);
+  });
+});
+
+test('the herd moves when its speed is raised, and stands still at zero', async () => {
+  await withSavannaScene(async (page) => {
+    const speed = page.getByLabel(/Herd speed/);
+    await speed.fill('0');
+    await page.waitForTimeout(500);
+    const stoppedA = await frame(page);
+    await page.waitForTimeout(700);
+    const stoppedB = await frame(page);
+    assert.ok(stoppedA.equals(stoppedB), 'a stopped herd should leave the scene still');
+
+    await speed.fill('6');
+    await page.waitForTimeout(500);
+    const movingA = await frame(page);
+    await page.waitForTimeout(700);
+    const movingB = await frame(page);
+    assert.ok(!movingA.equals(movingB), 'a walking herd should change the frame');
+  });
+});
+
+test('the savanna controls appear only in the savanna scene', async () => {
+  await withPage(async (page) => {
+    assert.ok(!(await page.getByLabel(/Herd speed/).isVisible()), 'not in the forest');
+    await page.getByRole('tab', { name: SCENES.savanna.label }).click();
+    await page.waitForTimeout(400);
+    assert.ok(await page.getByLabel(/Herd speed/).isVisible(), 'should be there in the savanna');
+    assert.ok(await page.getByLabel(/Acacias/).isVisible(), 'should be there in the savanna');
+    assert.ok(!(await page.getByLabel(/Train speed/).isVisible()), 'the sky controls must stay hidden');
   });
 });
 
@@ -133,8 +177,19 @@ test('launching the rocket takes it off the pad and puts it back', async () => {
     const button = page.getByRole('button', { name: 'Launch rocket' });
     const t0 = Date.now();
 
+    // Measured with the panel out of the way. It overlaps the canvas, so a screenshot of the canvas
+    // element includes it, and clicking a button leaves it holding keyboard focus — which draws a
+    // focus ring that is in every frame after the click and in none before it. Left in, that ring
+    // alone put the "pad looks as it did" comparison outside its tolerance, and widening the panel
+    // would change the result for reasons that have nothing to do with the scene.
+    await page.getByTitle('Hide menu').click();
+    await page.waitForTimeout(300);
     const onPad = await frame(page);
+    await page.getByTitle('Show menu').click();
+    await page.waitForTimeout(150);
     await button.click();
+    await page.getByTitle('Hide menu').click();
+    await page.waitForTimeout(150);
 
     // Sample across the whole sequence. A screenshot is the only way to see what was drawn, since
     // the WebGL buffer is not preserved and cannot be read back from the page, so frames are

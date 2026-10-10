@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { AppState } from '../models/appState';
 import type { CameraFraming } from '../models/cameraFraming';
 import type { FireworkSim } from '../models/fireworks';
+import type { SceneId } from '../models/scenes';
 import type { Ground } from '../models/ground';
 import { TIME_PRESETS } from '../models/timeOfDay';
 import { Atmosphere } from '../render/atmosphere';
@@ -11,7 +12,8 @@ import type { Scene } from './scene';
 
 /** Lets a scene report things to the UI without knowing what a control panel is. */
 export interface SceneReport {
-  setTreeStats(text: string): void;
+  /** Fills in the muted readout under the scene's controls, with a count of what it drew. */
+  setStats(scene: SceneId, text: string): void;
 }
 
 /**
