@@ -41,6 +41,31 @@ export interface LoadOptions {
 }
 
 const scratchBox = new THREE.Box3();
+const scratchPart = new THREE.Box3();
+
+/**
+ * The box the group's geometry actually occupies, in world space.
+ *
+ * Measured from the geometry rather than with `Box3.expandByObject`, because on a rigged mesh those
+ * two disagree. `expandByObject` uses the mesh's *skinned* box — the pose the skeleton is in now —
+ * while what gets merged below is the geometry's *bind pose*, the vertices as authored. For the rhino
+ * those differ by about 9%, so measuring one and drawing the other fits the animal to a box it never
+ * occupied. Measuring the geometry is also the honest choice here: this loader draws a rest pose,
+ * so the rest pose is what the fit has to describe.
+ *
+ * Returns false for a group with nothing measurable in it.
+ */
+function measureGroup(meshes: readonly THREE.Mesh[]): boolean {
+  scratchBox.makeEmpty();
+  for (const mesh of meshes) {
+    if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+    if (!mesh.geometry.boundingBox) continue;
+    // Cloned before transforming: the geometry's own box is shared and must not be moved.
+    scratchPart.copy(mesh.geometry.boundingBox).applyMatrix4(mesh.matrixWorld);
+    scratchBox.union(scratchPart);
+  }
+  return !scratchBox.isEmpty();
+}
 
 /** One group's meshes, merged into one geometry with their materials kept in step. */
 function mergeGroup(meshes: readonly THREE.Mesh[], policy: MaterialPolicy): LoadedMesh | null {
@@ -71,7 +96,15 @@ function mergeGroup(meshes: readonly THREE.Mesh[], policy: MaterialPolicy): Load
   });
   const merged = mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)), true);
   for (const part of parts) part.dispose();
-  return merged ? { geometry: merged, materials } : null;
+  if (!merged) return null;
+  // A rigged file arrives with joint indices and weights on every vertex, and they are carried through
+  // the merge above because they have to match across the parts for the merge to succeed at all.
+  // Nothing downstream can use them: the result is drawn on a plain Mesh with no skeleton, and a bone
+  // texture that is never bound only costs memory. A file whose rig is its rest pose — which is the
+  // only kind this app can draw, since it loads no animations — is baked to static geometry here.
+  merged.deleteAttribute('JOINTS_0');
+  merged.deleteAttribute('WEIGHTS_0');
+  return { geometry: merged, materials };
 }
 
 /**
@@ -111,16 +144,15 @@ function groupMeshes(scene: THREE.Object3D): THREE.Mesh[][] {
  */
 export async function loadGltf(url: string, options: LoadOptions): Promise<LoadedMesh[]> {
   const gltf = await new GLTFLoader().loadAsync(url);
+  // The world matrices the measurement and the merge both rely on. Left stale, the two would read
+  // the same meshes from different transforms and fit the group to a box it never occupied.
+  gltf.scene.updateMatrixWorld(true);
   const found: LoadedMesh[] = [];
   for (const group of groupMeshes(gltf.scene)) {
     // Fitted from the group's own extent in world space, measured once and applied to every part of
     // it, so an object split across four meshes is scaled as one and not as four unrelated shapes.
-    // Read from world matrices rather than from the raw glTF accessors, which are per mesh in the
-    // mesh's own local frame and do not add up to one object.
-    scratchBox.makeEmpty();
-    gltf.scene.updateMatrixWorld(true);
-    for (const mesh of group) scratchBox.expandByObject(mesh);
-    if (scratchBox.isEmpty()) continue;
+    // See `measureGroup` for why this is not `Box3.expandByObject`.
+    if (!measureGroup(group)) continue;
     const size = scratchBox.getSize(new THREE.Vector3());
     const centre = scratchBox.getCenter(new THREE.Vector3());
     const fit = fitMesh(

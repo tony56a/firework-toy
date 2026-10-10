@@ -1,17 +1,19 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import {
-  GRAZER_SPECS, grazeAngle,
-  type GrazerKind, type GrazerPose, type GrazerSpec,
-} from '../models/savanna/grazer';
+import { GRAZER_SPECS, grazeAngle, type GrazerKind, type GrazerPose, type GrazerSpec } from '../models/savanna/grazer';
+import type { LoadedMesh } from './gltfAssets';
 
 /**
- * A herd drawn as instanced meshes: three kinds, each as a body, a head and four legs.
+ * A herd drawn as one instanced mesh per kind.
  *
- * The head and the legs are separate instanced meshes rather than part of the body because both are
- * animated per animal — the head drops to graze, the legs swing with the stride — and an instanced
- * mesh carries one matrix per instance, so anything that moves independently needs its own. Three
- * kinds times three meshes is nine draw calls for the whole herd.
+ * A kind with a downloaded model is drawn as that model, already fitted and centred by the loader.
+ * A kind without one is built here as a body, a head and four legs, which is the fallback that keeps
+ * a fresh clone running when the files are missing.
+ *
+ * The fallback splits the head and the legs off because an instanced mesh carries one matrix per
+ * instance, so anything that has to move on its own needs a mesh of its own. A downloaded animal has
+ * no such split — it merges to one geometry — so the graze arrives as a dip of the whole body for
+ * both, which is why the dip lives in the pose rather than here.
  *
  * Everything is posed by composing matrices rather than by placing meshes in the scene graph: each
  * animal's transform is built once and the head and legs are multiplied onto it, so a head cannot
@@ -20,9 +22,9 @@ import {
 
 /** Body colour per kind. Zebra stripes are not modelled; it reads as the pale one in the herd. */
 const HIDE: Readonly<Record<GrazerKind, number>> = {
-  wildebeest: 0x4a4238,
-  zebra: 0xd8d2c4,
+  elephant: 0x8e8a86,
   giraffe: 0xc08d4e,
+  rhino: 0x77706a,
 };
 
 /** How far the legs swing either side of straight, in radians. */
@@ -38,17 +40,42 @@ const HIP_DROP = 0.2;
  */
 const HIP_PHASE = [0, 0.5, 0.5, 0];
 
-/** The torso, built along +x with its centre on the origin, so a pose is a position and a turn. */
-function bodyGeometry(spec: GrazerSpec): THREE.BufferGeometry {
+/**
+ * The torso, built along +x with its centre on the origin, so a pose is a position and a turn.
+ *
+ * The one feature each kind is named for is added here, at the shoulder: an elephant's trunk and
+ * tusks, a giraffe's shoulder hump, a rhino's horn. The fallback only has to appear for a second or
+ * two before the file lands, but it has to be recognisable while it is there — three of the same
+ * grey box would not read as a herd of three different animals at all.
+ */
+function bodyGeometry(spec: GrazerSpec, kind: GrazerKind): THREE.BufferGeometry {
   const length = spec.length;
   const body = new THREE.CapsuleGeometry(length * 0.22, length * 0.52, 3, 8)
     .rotateZ(Math.PI / 2)
     .scale(1, 1, 0.82);
-  // The shoulder hump a grazing animal carries, which is most of what reads as wildebeest. Low and
-  // broad rather than tall: a narrow cone on the withers reads as a fin or a horn from any angle.
-  const hump = new THREE.ConeGeometry(length * 0.22, length * 0.16, 6)
-    .translate(length * 0.26, length * 0.13, 0);
-  return mergeGeometries([body.toNonIndexed(), hump.toNonIndexed()])!;
+  const parts: THREE.BufferGeometry[] = [body.toNonIndexed()];
+  if (kind === 'elephant') {
+    // Trunk hanging off the front of the head, and the tusks either side of it.
+    const trunk = new THREE.CylinderGeometry(length * 0.03, length * 0.045, length * 0.55, 5)
+      .rotateZ(-0.25)
+      .translate(length * 0.62, -length * 0.16, 0);
+    const tusk = (across: number) => new THREE.ConeGeometry(length * 0.025, length * 0.2, 5)
+      .rotateZ(Math.PI / 2)
+      .translate(length * 0.58, length * 0.02, across);
+    parts.push(trunk.toNonIndexed(), tusk(length * 0.08).toNonIndexed(), tusk(-length * 0.08).toNonIndexed());
+  } else if (kind === 'rhino') {
+    // The horn on the snout is the whole silhouette of a rhino at this size.
+    parts.push(new THREE.ConeGeometry(length * 0.035, length * 0.26, 5)
+      .rotateZ(-Math.PI / 2)
+      .translate(length * 0.6, length * 0.06, 0)
+      .toNonIndexed());
+  } else {
+    // A giraffe carries a low shoulder hump; narrow and tall reads as a fin or a horn instead.
+    parts.push(new THREE.ConeGeometry(length * 0.2, length * 0.14, 6)
+      .translate(length * 0.22, length * 0.12, 0)
+      .toNonIndexed());
+  }
+  return mergeGeometries(parts)!;
 }
 
 /**
@@ -87,10 +114,20 @@ interface KindMeshes {
   legs: THREE.InstancedMesh;
 }
 
+/** How one kind is drawn: from its downloaded model, or from geometry built here as a fallback. */
+interface KindDraw {
+  kind: GrazerKind;
+  members: number;
+  /** Height from the ground to the animal's centre, which is what the pose is lifted by. */
+  lift: number;
+  /** The drawn animal, or null when this kind is drawn from its downloaded model instead. */
+  loaded: THREE.InstancedMesh | null;
+  fallback: KindMeshes | null;
+  geometries: { body: THREE.BufferGeometry; head: THREE.BufferGeometry; leg: THREE.BufferGeometry } | null;
+}
+
 export class HerdView {
-  private readonly groups = new Map<GrazerKind, KindMeshes>();
-  private readonly geometries = new Map<GrazerKind, { body: THREE.BufferGeometry; head: THREE.BufferGeometry; leg: THREE.BufferGeometry }>();
-  private readonly counts = new Map<GrazerKind, number>();
+  private readonly draws = new Map<GrazerKind, KindDraw>();
 
   private readonly object = new THREE.Object3D();
   private readonly body = new THREE.Matrix4();
@@ -100,32 +137,52 @@ export class HerdView {
   constructor(private readonly scene: THREE.Scene) {}
 
   /**
-   * Rebuilds the herd as one set of instanced meshes per kind. The animals do not move until `pose`
-   * is called, so the herd is drawn wherever it last stood until the scene asks again.
+   * Rebuilds the herd, one draw per kind.
+   *
+   * A kind with a loaded model is one instanced mesh of that model; a kind without one falls back to
+   * a body, a head and four legs built here. The two are not interchangeable: only the fallback can
+   * move its head and legs on their own, so the graze arrives as a whole-body dip either way.
+   *
+   * The loaded geometry belongs to whoever loaded it, so it is borrowed here and never disposed.
    */
-  set(kinds: readonly GrazerKind[]): void {
+  set(kinds: readonly GrazerKind[], loaded: Readonly<Partial<Record<GrazerKind, LoadedMesh>>>): void {
     this.clear();
     for (const kind of kinds) {
       const members = kinds.reduce((n, k) => n + (k === kind ? 1 : 0), 0);
       if (members === 0) continue;
       const spec = GRAZER_SPECS[kind];
-      const geometries = {
-        body: bodyGeometry(spec),
-        head: headGeometry(spec),
-        leg: legGeometry(spec),
+      const model: LoadedMesh | null = loaded[kind] ?? null;
+      const draw: KindDraw = {
+        kind, members,
+        // A loaded animal's height is measured off its own fitted geometry, because the fit put its
+        // centre on the origin and told us nothing about how tall it ended up. Assuming the spec's
+        // height instead would float it or sink it by the difference between the two.
+        lift: model ? (model.geometry.boundingBox!.max.y - model.geometry.boundingBox!.min.y) / 2 : spec.height,
+        loaded: null,
+        fallback: null,
+        geometries: null,
       };
-      this.geometries.set(kind, geometries);
-      const material = new THREE.MeshStandardMaterial({ color: HIDE[kind], roughness: 0.9, flatShading: true });
-      const group: KindMeshes = {
-        body: new THREE.InstancedMesh(geometries.body, material, members),
-        head: new THREE.InstancedMesh(geometries.head, material, members),
-        legs: new THREE.InstancedMesh(geometries.leg, material, members * 4),
-      };
-      for (const mesh of [group.body, group.head, group.legs]) {
+      if (model) {
+        const mesh = new THREE.InstancedMesh(model.geometry, model.materials, members);
         mesh.castShadow = true;
         this.scene.add(mesh);
+        draw.loaded = mesh;
+      } else {
+        const geometries = { body: bodyGeometry(spec, kind), head: headGeometry(spec), leg: legGeometry(spec) };
+        const material = new THREE.MeshStandardMaterial({ color: HIDE[kind], roughness: 0.9, flatShading: true });
+        const fallback: KindMeshes = {
+          body: new THREE.InstancedMesh(geometries.body, material, members),
+          head: new THREE.InstancedMesh(geometries.head, material, members),
+          legs: new THREE.InstancedMesh(geometries.leg, material, members * 4),
+        };
+        for (const one of [fallback.body, fallback.head, fallback.legs]) {
+          one.castShadow = true;
+          this.scene.add(one);
+        }
+        draw.fallback = fallback;
+        draw.geometries = geometries;
       }
-      this.groups.set(kind, group);
+      this.draws.set(kind, draw);
     }
     // Which animal occupies which instance of its kind, so a pose can find its own slot rather than
     // searching for it. Without this every animal would be written to every kind's first slot.
@@ -136,8 +193,6 @@ export class HerdView {
       this.slots.set(i, slot);
       seen.set(kind, slot + 1);
     });
-    this.counts.clear();
-    for (const [kind, count] of seen) this.counts.set(kind, count);
   }
 
   /** Instance slot for each animal, rebuilt by `set`. */
@@ -147,21 +202,29 @@ export class HerdView {
   pose(kinds: readonly GrazerKind[], poses: readonly GrazerPose[]): void {
     for (let i = 0; i < poses.length; i++) {
       const kind = kinds[i];
-      const meshes = this.groups.get(kind);
+      const draw = this.draws.get(kind);
       const slot = this.slots.get(i);
-      if (!meshes || slot === undefined) continue;
+      if (!draw || slot === undefined) continue;
       const spec = GRAZER_SPECS[kind];
       const pose = poses[i];
 
-      // YXZ, so the pitch is about the animal's own across-axis rather than about world x. With the
-      // default order a giraffe would rear and roll depending on which way it happened to be facing.
+      // YXZ throughout, so every pitch is about the animal's own across-axis rather than about world
+      // x. With the default order an animal would rear and roll depending on which way it was facing.
+      // The bob is on z, which in this order is applied first and is therefore a nose-down dip about
+      // the animal's own lateral axis, before the yaw swings it to face where it is going.
       this.object.rotation.order = 'YXZ';
-      this.object.position.set(pose.x, pose.y + spec.height, pose.z);
+      this.object.position.set(pose.x, pose.y + draw.lift, pose.z);
       // Yaw negated for the same reason as the boat and the fish: the pose is measured in the XZ
       // plane with 0 along +x, and a rotation about +y turns +x toward -z.
-      this.object.rotation.set(0, -pose.yaw, 0);
+      this.object.rotation.set(0, -pose.yaw, pose.bob);
       this.object.updateMatrix();
       this.body.copy(this.object.matrix);
+
+      if (draw.loaded) {
+        draw.loaded.setMatrixAt(slot, this.body);
+        continue;
+      }
+      const meshes = draw.fallback!;
       meshes.body.setMatrixAt(slot, this.body);
 
       // Head: the shoulder offset and the graze pitch, both in the body's own frame.
@@ -172,7 +235,7 @@ export class HerdView {
       this.matrix.multiplyMatrices(this.body, this.part);
       meshes.head.setMatrixAt(slot, this.matrix);
 
-      // Legs: four hips, swung about their own top by the stride. A head-down animal has its stride
+      // Legs: four hips, swung about their own top by the stride. A grazing animal has its stride
       // pinned to zero by the model, so it stands still rather than marching on the spot.
       for (let leg = 0; leg < 4; leg++) {
         const swing = Math.sin((pose.stride + HIP_PHASE[leg]) * Math.PI * 2) * STRIDE_SWING;
@@ -186,26 +249,36 @@ export class HerdView {
         meshes.legs.setMatrixAt(slot * 4 + leg, this.matrix);
       }
     }
-    for (const meshes of this.groups.values()) {
-      for (const mesh of [meshes.body, meshes.head, meshes.legs]) mesh.instanceMatrix.needsUpdate = true;
+    for (const draw of this.draws.values()) {
+      if (draw.loaded) {
+        draw.loaded.instanceMatrix.needsUpdate = true;
+      } else if (draw.fallback) {
+        for (const mesh of [draw.fallback.body, draw.fallback.head, draw.fallback.legs]) {
+          mesh.instanceMatrix.needsUpdate = true;
+        }
+      }
     }
   }
 
   private clear(): void {
-    for (const meshes of this.groups.values()) {
-      for (const mesh of [meshes.body, meshes.head, meshes.legs]) {
-        this.scene.remove(mesh);
-        mesh.dispose();
-        (mesh.material as THREE.Material).dispose();
+    for (const draw of this.draws.values()) {
+      if (draw.loaded) {
+        this.scene.remove(draw.loaded);
+        // The geometry and materials came from the loader and belong to it. Only the instance
+        // buffers are freed here.
+        draw.loaded.dispose();
       }
+      if (draw.fallback) {
+        for (const mesh of [draw.fallback.body, draw.fallback.head, draw.fallback.legs]) {
+          this.scene.remove(mesh);
+          mesh.dispose();
+          (mesh.material as THREE.Material).dispose();
+        }
+      }
+      for (const geometry of Object.values(draw.geometries ?? {})) geometry.dispose();
     }
-    this.groups.clear();
-    for (const geometries of this.geometries.values()) {
-      for (const geometry of Object.values(geometries)) geometry.dispose();
-    }
-    this.geometries.clear();
+    this.draws.clear();
     this.slots.clear();
-    this.counts.clear();
   }
 
   dispose(): void {

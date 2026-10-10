@@ -5,8 +5,9 @@ import type { CameraFraming } from '../models/cameraFraming';
 import type { FireworkSim } from '../models/fireworks';
 import { scatterAcacias, type Acacia } from '../models/savanna/acacias';
 import { Savanna } from '../models/savanna/ground';
-import { herd, grazerPose, type Grazer, type GrazerKind } from '../models/savanna/grazer';
+import { GRAZER_KINDS, GRAZER_SPECS, herd, grazerPose, type Grazer, type GrazerKind } from '../models/savanna/grazer';
 import { AcaciaView } from '../render/acaciaView';
+import { loadGltf, type LoadedMesh } from '../render/gltfAssets';
 import { HerdView } from '../render/herdView';
 import { SavannaView } from '../render/savannaView';
 import { SceneBase, type SceneReport } from './sceneBase';
@@ -29,6 +30,14 @@ export class SavannaScene extends SceneBase {
   private acacias: Acacia[] = [];
   private grazers: readonly Grazer[] = [];
   private speed = HERD_SPEED_DEFAULT;
+  /**
+   * The seed and herd size the herd was last built at, kept so a model that lands after them can
+   * rebuild the herd onto the settings it belongs to rather than the ones it was fetched under.
+   */
+  private seed: string;
+  private herdSize: number;
+  /** The downloaded animals, by kind, once they have arrived. Empty until then, and for good if any fail. */
+  private models: Partial<Record<GrazerKind, LoadedMesh>> = {};
   /** Seconds this scene has been running, which is the clock the herd is posed against. */
   private elapsed = 0;
 
@@ -38,7 +47,40 @@ export class SavannaScene extends SceneBase {
     this.acaciaView = new AcaciaView(this.three);
     this.herdView = new HerdView(this.three);
     this.plain = new Savanna(seed);
+    this.seed = seed;
+    this.herdSize = 0;
     this.groundView.set(this.plain);
+    this.loadModels();
+  }
+
+  /**
+   * Fetches the grazers and swaps them in as each arrives.
+   *
+   * Deliberately not awaited, and one fetch per kind rather than one for the scene: the herd is drawn
+   * in code from the first frame, and each file landing replaces one kind's animals. A file that is
+   * missing or unreadable costs that one animal its downloaded look, which is the whole reason the
+   * fallback exists, rather than holding up the scene.
+   */
+  private loadModels(): void {
+    for (const kind of GRAZER_KINDS) {
+      const url = GRAZER_SPECS[kind].model;
+      if (!url) continue;
+      const spec = GRAZER_SPECS[kind];
+      void loadGltf(url, {
+        fit: { length: spec.length, along: 'x', lengthAxis: spec.lengthAxis, front: spec.front },
+        materials: { flatShading: true, roughnessFloor: 0.7 },
+      })
+        .then((loaded) => {
+          const animal = loaded[0];
+          // A file that parses but holds nothing usable comes back empty rather than throwing.
+          if (!animal) return;
+          this.models = { ...this.models, [kind]: animal };
+          this.rebuildHerd(this.seed, this.herdSize);
+        })
+        .catch(() => {
+          // No file, or one that is not readable glTF. That animal keeps the shape it was drawn with.
+        });
+    }
   }
 
   get ground(): Savanna {
@@ -49,11 +91,14 @@ export class SavannaScene extends SceneBase {
     if (changed.includes('seed')) {
       this.plain = new Savanna(state.seed);
       this.groundView.set(this.plain);
+      this.seed = state.seed;
+      this.herdSize = state.herdSize;
       this.rebuildAcacias(state.seed, state.acaciaCount);
       this.rebuildHerd(state.seed, state.herdSize);
     } else if (changed.includes('acaciaCount')) {
       this.rebuildAcacias(state.seed, state.acaciaCount);
     } else if (changed.includes('herdSize')) {
+      this.herdSize = state.herdSize;
       this.rebuildHerd(state.seed, state.herdSize);
     }
     if (changed.includes('herdSpeed')) this.speed = state.herdSpeed;
@@ -80,7 +125,7 @@ export class SavannaScene extends SceneBase {
     // The instanced meshes were built for the old herd, so they go and are made again for this one.
     this.herdView.dispose();
     this.herdView = new HerdView(this.three);
-    this.herdView.set(this.grazers.map((g) => g.kind));
+    this.herdView.set(this.grazers.map((g) => g.kind), this.models);
   }
 
   update(camera: THREE.Camera, dt: number): void {

@@ -151,7 +151,42 @@ export const MAX_HERD = 36;
  * Generous on purpose: the herd has to be spread across the plain rather than gathered in the middle
  * of it, and each patch's reach is taken off this again so nothing wanders off the edge.
  */
-export const GRAZE_REACH = 0.62;
+export const GRAZE_REACH = 0.78;
+/**
+ * How far an animal tips its nose down while grazing, in radians.
+ *
+ * A downloaded animal is merged into one mesh, so its head cannot drop and its legs cannot swing
+ * separately from its body. The graze has to read somehow, and a slow dip of the whole animal is
+ * what carries it. About five degrees: enough to see at a distance, not enough to look like the
+ * animal is falling over.
+ */
+export const GRAZE_BOB = 0.09;
+
+/**
+ * The downloaded grazers, where the app looks for them. Served from `public/` so they sit beside the
+ * app as plain files. If one is missing that animal falls back to one drawn in code, so a fresh clone
+ * still runs and a file that fails to load costs one kind of animal rather than the whole herd.
+ *
+ * All three are CC Attribution (CC BY 4.0), which requires attribution. The author and source below
+ * are taken from each file's own metadata rather than from memory, because getting an attribution
+ * wrong is a licence problem and not a typo.
+ */
+
+/** "Low poly elephant" by ClydeXYZ, from Sketchfab. */
+export const ELEPHANT_MODEL_URL = 'models/low_poly_elephant.glb';
+
+/** "Low Poly Giraffe" by Garu Games, from Sketchfab. */
+export const GIRAFFE_MODEL_URL = 'models/low_poly_giraffe.glb';
+
+/**
+ * "(FULLY RIGGED) Low Poly Rhino" by BlazingWildFire, from Sketchfab.
+ *
+ * The rig is the reason this one needs saying more about. There are 33 joints and a skin, and the
+ * export carries no animations at all, so the skeleton is only ever going to be drawn in its bind
+ * pose. The loader bakes it to a static mesh and drops the joint attributes, which is the honest
+ * reading of a file that cannot animate.
+ */
+export const RHINO_MODEL_URL = 'models/fully_rigged_low_poly_rhino.glb';
 
 
 /** Peak engine plume length, and how fast it flickers. */

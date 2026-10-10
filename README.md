@@ -1,8 +1,9 @@
 # Forest Field
 
 A procedurally generated three.js toybox: a forest field with clap-triggered fireworks, a model
-train running around a diorama table, and a concrete launch pad where a rocket counts down and
-bursts. TypeScript, Vite, no framework.
+train running around a diorama table, a concrete launch pad where a rocket counts down and bursts,
+a walled basin with a boat and a jumping school of fish, and a savanna with a herd of elephants,
+giraffes and rhinos. TypeScript, Vite, no framework.
 
 ```bash
 npm install
@@ -17,7 +18,7 @@ Use `localhost` (or https) for the microphone. It will not work inside a sandbox
 
 ## Scenes
 
-Three worlds, chosen from the panel. They share the camera rig, the fireworks simulation and the
+Five worlds, chosen from the panel. They share the camera rig, the fireworks simulation and the
 control panel; each owns its own models and geometry.
 
 - **Forest** — terrain from a seed, with discrete trees scattered by dart-throwing. The original
@@ -26,8 +27,36 @@ control panel; each owns its own models and geometry.
   running a loop around the rim. Speed is adjustable, down to stopped.
 - **Concrete** — a flat pad cast as a grid of panels, with a service tower and ground buildings.
   A rocket stands on the pad and can be launched on demand.
+- **Sea** — a walled basin of water, bounded so it reads as a thing with edges rather than a horizon
+  that goes on forever. A boat works a course around it leaving a wake, and a school of fish leaps.
+- **Savanna** — a flat plain of dry grass with flat-topped acacias, and a herd of grazers wandering
+  between them. Acacia count, herd size and herd speed are adjustable; at zero speed the herd stops
+  where it stands rather than returning to the middle of its patch.
 
 Controls that do not apply are hidden per scene rather than greyed out.
+
+### Downloaded models
+
+Four scenes draw from `.glb` files in `public/models/`, all CC-BY-4.0 and attributed beside the path
+in `config.ts`. Each is fetched at run time and fitted to the size this world draws, so nothing
+depends on how the file happened to be authored — the giraffe is 519 units tall because it was
+exported in centimetres, and it comes out the same size as everything else anyway.
+
+Every kind of animal is drawn in code as well, and the downloaded model replaces it when it lands.
+That is what keeps a fresh clone working with no files at all, and what makes a file that fails to
+load cost one animal its looks rather than the whole herd.
+
+Three things about a file cannot be derived from it and are measured instead, then kept beside the
+path: which axis is nose-to-tail (`lengthAxis` — a giraffe is taller than it is long, so the longest
+axis is the wrong one), which end the head is on (`front` — the elephant's tusks and the rhino's
+horns gave it away), and the material policy. The rest is measured every load.
+
+The rhino is rigged, with 33 joints and a skin, and the export carries no animations. It is baked to
+a static mesh in its rest pose, and the joint attributes are dropped: a bone texture nothing binds is
+just memory. See `measureGroup` in `render/gltfAssets.ts` for why a rigged mesh is measured from its
+geometry rather than with `Box3.expandByObject` — the two disagree by about 9% on a mesh whose rest
+pose is smaller than its bind pose, and fitting to one while drawing the other is how an animal comes
+out the wrong size.
 
 ## Architecture
 
@@ -42,10 +71,13 @@ src/
     sky/       tableModels.ts (models on the table), track.ts (the train loop)
     concrete/  slab.ts (the pad), site.ts (tower and buildings), launch.ts (hold/climb/burst),
                countdown.ts (timing), countdownPhrases.ts (spoken words, 8 languages)
+    sea/       sea.ts (the swell), boat.ts (course and pose), fish.ts (leaps), waves.ts
+    savanna/   ground.ts (the plain), acacias.ts (scatter), grazer.ts (the herd)
     fireworks.ts  particles into typed arrays     fireworkPalettes.ts  burst colours
     timeOfDay.ts   atmosphere presets             appState.ts        everything the user can change
     cameraModes.ts labels and fov                 cameraFraming.ts   how big each scene is
     ground.ts      the Ground interface the scenes share
+    meshFit.ts     fitting a downloaded mesh to this world (no three.js, so it is unit tested)
     modelKinds.ts  the model types the table and the forest share
   input/     things that produce events
     pointerInput.ts     drag, pinch, wheel -> gestures
@@ -58,6 +90,8 @@ src/
     sceneRenderer.ts  atmosphere.ts  terrainView.ts  treeView.ts  fireworksView.ts
     concreteView.ts  concreteMaterial.ts  siteView.ts  rocketView.ts  rocketLaunchView.ts
     trainView.ts  modelTableView.ts  modelGeometry.ts
+    gltfAssets.ts  loading and fitting .glb files; seaView.ts  boatView.ts  fishView.ts
+    savannaView.ts  acaciaView.ts  herdView.ts  splashPool.ts
   ui/        controlPanel.ts builds the DOM from the store; speech.ts; styles.css
   app.ts     composition root: wires everything, owns the frame loop
   main.ts    entry point
@@ -68,6 +102,8 @@ tests/e2e/   Playwright, driving the real Chrome against a real dev server
 Seams worth knowing about:
 
 - `FireworkSim` and `scatterTrees` are deterministic given a seeded rng, which is what makes them testable.
+- `fitMesh` is pure and takes a bounding box, not a mesh, so the whole loader's geometry is unit
+  tested without a browser or a file.
 - `ClapDetector.update(frame, now)` takes an `AudioFrame` and a clock, so tests feed it synthetic audio.
 - `MicrophoneSource.start(deviceId?)` is where a device picker would plug in.
 - Swapping the classifier means implementing `ClipClassifier` (`classify(samples16k) -> score`).
@@ -112,4 +148,10 @@ height that would otherwise fall out of frame.
 - At the top of the burst range the overhead camera tilts almost straight up and the pad leaves the
   frame. Capping `LAUNCH_BURST_MAX` near 120 would keep ground reference from the low cameras.
 - `ScriptProcessorNode` is deprecated; an `AudioWorklet` is the proper replacement.
-- `test:e2e` exists but covers layout and interaction, not how anything looks.
+- `test:e2e` exists but covers layout and interaction, not how anything looks. It is slow enough to
+  be worth running only when asked; see AGENTS.md.
+- Nothing asserts what a `.glb` looks like. The herd's front-ends were confirmed by rendering each
+  animal both ways and looking, and a future asset could be backwards or on its side with every test
+  still green.
+- `ConcreteScene.setBurstHeight` is never called, so the Burst height slider does nothing and the
+  rocket always bursts at 60.

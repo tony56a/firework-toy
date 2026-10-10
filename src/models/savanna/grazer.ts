@@ -1,5 +1,9 @@
-import { GRAZE_REACH, HERD_SPEED_DEFAULT, SAVANNA_SIZE } from '../../config';
-import { range, rngFromSeed } from '../../core/random';
+import {
+  ELEPHANT_MODEL_URL, GIRAFFE_MODEL_URL, GRAZE_BOB, GRAZE_REACH, HERD_SPEED_DEFAULT, RHINO_MODEL_URL,
+  SAVANNA_SIZE,
+} from '../../config';
+import { clamp, range, rngFromSeed } from '../../core/random';
+import type { Axis, FrontEnd } from '../meshFit';
 import type { Ground } from '../ground';
 
 /**
@@ -10,31 +14,65 @@ import type { Ground } from '../ground';
  * about the same instant have to agree with each other or the herd shears apart.
  */
 
-/** The three kinds of grazer on the plain. They are told apart by shape and by how they move. */
-export type GrazerKind = 'wildebeest' | 'zebra' | 'giraffe';
+/** The three kinds of grazer on the plain, one for each downloaded model. */
+export type GrazerKind = 'elephant' | 'giraffe' | 'rhino';
 
-export const GRAZER_KINDS: readonly GrazerKind[] = ['wildebeest', 'zebra', 'giraffe'];
+export const GRAZER_KINDS: readonly GrazerKind[] = ['elephant', 'giraffe', 'rhino'];
 
-/** How big each kind is, and how far its head reaches when it drops to graze. */
+/** How big each kind is, and what it is drawn from. */
 export interface GrazerSpec {
-  /** Nose to tail, which is what the body geometry is built around. */
+  /** Nose to tail, which is both the size a downloaded model is fitted to and the body's length. */
   length: number;
-  /** How tall it stands, giraffes by a long way. */
+  /** How tall it stands. Only the drawn fallback uses this; a loaded model's height comes from itself. */
   height: number;
-  /** How far below standing the head drops to graze, in the same units as height. */
+  /**
+   * How far below standing the head drops to graze, in the same units as height.
+   *
+   * Kept within what the neck below can actually reach: the tip hangs `neck * length` from the
+   * shoulder, so a drop longer than that asks for an angle that does not exist and the head stops
+   * where it was. An elephant barely drops its head at all — it reaches with its trunk.
+   */
   grazeDrop: number;
-  /** Neck and head reach forward from the shoulder, as a fraction of length. */
+  /**
+   * Neck and head reach forward from the shoulder, as a fraction of length.
+   *
+   * Over 1 for the giraffe, whose neck really is about as long as its body. This only sizes the drawn
+   * fallback; a loaded animal brings its own proportions and is not built from these numbers.
+   */
   neck: number;
   /** Stride length as a fraction of its own length, so a giraffe takes visibly longer steps. */
   stride: number;
+  /** The glb to draw this kind from, or null to draw it in code. */
+  model: string | null;
+  /**
+   * Which end of a downloaded model's longest axis its head is at.
+   *
+   * A bounding box cannot tell you — an animal is not symmetric front to back but a box is — so each
+   * of these was measured off its file. Measured by looking, and by the parts that only exist at one
+   * end: the elephant's tusks and the rhino's horns are the two that gave it away.
+   */
+  lengthAxis: Axis;
+  front: FrontEnd;
 }
 
 export const GRAZER_SPECS: Readonly<Record<GrazerKind, GrazerSpec>> = {
-  wildebeest: { length: 4.2, height: 2, grazeDrop: 1.6, neck: 0.5, stride: 0.9 },
-  zebra: { length: 4.6, height: 2.3, grazeDrop: 1.8, neck: 0.52, stride: 1 },
-  // The drop is most of its height and the neck is long, which is what makes a grazing giraffe read
-  // as one: a shape you can see over the top of the herd.
-  giraffe: { length: 8, height: 8.6, grazeDrop: 6.8, neck: 0.9, stride: 1.15 },
+  // Heights are the measured heights of the fitted models, so the drawn fallback is not a different
+  // size from the animal that replaces it a moment later.
+  elephant: {
+    length: 7, height: 4.7, grazeDrop: 1.9, neck: 0.3, stride: 0.8,
+    model: ELEPHANT_MODEL_URL, lengthAxis: 'x', front: 'negative',
+  },
+  // Authored standing and 519 units tall, in centimetres. Its length is on x, not on the y it is
+  // tallest in, which is the whole reason `lengthAxis` exists.
+  giraffe: {
+    length: 6.5, height: 9.8, grazeDrop: 7.5, neck: 1.2, stride: 1.15,
+    model: GIRAFFE_MODEL_URL, lengthAxis: 'x', front: 'negative',
+  },
+  // The only one of the three that is longest nose to tail, and the only rigged one: see its URL.
+  rhino: {
+    length: 5, height: 2.6, grazeDrop: 1.2, neck: 0.28, stride: 0.75,
+    model: RHINO_MODEL_URL, lengthAxis: 'z', front: 'negative',
+  },
 };
 
 export interface Grazer {
@@ -69,9 +107,16 @@ export interface GrazerPose {
   z: number;
   /** Heading in the XZ plane, where 0 points along +x. */
   yaw: number;
-  /** Whether the head is down grazing this frame, which is what the renderer drops it for. */
+  /** Whether it is grazing this frame, which is what the renderer plays the graze beat for. */
   headDown: boolean;
-  /** Where in its stride cycle it is, in [0, 1). Drives the legs. */
+  /**
+   * Nose-down dip of the whole animal while grazing, in radians. Zero whenever it is not grazing.
+   *
+   * A loaded animal is one merged mesh, so its head cannot drop on its own; the dip is what carries
+   * the beat instead. The drawn fallback uses it too, so the two are grazing the same way.
+   */
+  bob: number;
+  /** Where in its stride cycle it is, in [0, 1). Drives the legs of the drawn fallback. */
   stride: number;
 }
 
@@ -131,7 +176,15 @@ export function grazerPose(
   // zero has to be an animal standing still, and a graze cycle that kept running would put its head
   // down and lift it again while its feet never moved.
   const threshold = Math.sin(Math.PI * (0.5 - grazer.grazeDuty));
-  const headDown = Math.sin(grazer.grazePhase + grazer.grazeRate * pace * time) > threshold;
+  const beat = Math.sin(grazer.grazePhase + grazer.grazeRate * pace * time);
+  const headDown = beat > threshold;
+
+  // How far into the grazing part of the cycle this is, from 0 at the moment it starts to 1 at the
+  // peak. Measuring it from the threshold rather than from the sine itself is what keeps the dip
+  // pointing the right way: an animal with a duty over half has a negative threshold, and taking the
+  // sine as the dip would tilt it nose-up through the whole of a graze.
+  const depth = threshold >= 1 ? 0 : (beat - threshold) / (1 - threshold);
+  const bob = headDown ? GRAZE_BOB * clamp(depth, 0, 1) : 0;
 
   const stride = (grazer.cadence * pace * time + grazer.phase) % 1;
   return {
@@ -140,7 +193,8 @@ export function grazerPose(
     z: here.z,
     yaw,
     headDown,
-    // Legs stop while the head is down: an animal eating is not striding.
+    bob,
+    // Legs stop while grazing: an animal eating is not striding.
     stride: headDown ? 0 : stride,
   };
 }

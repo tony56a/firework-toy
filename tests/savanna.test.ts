@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ACACIA_HEIGHT, MAX_HERD, SAVANNA_SIZE } from '../src/config';
+import { ACACIA_HEIGHT, GRAZE_BOB, MAX_HERD, SAVANNA_SIZE } from '../src/config';
 import { scatterAcacias } from '../src/models/savanna/acacias';
 import { Savanna } from '../src/models/savanna/ground';
 import {
@@ -225,14 +225,43 @@ test('a grazer tips its head down by about as far as its own reach says', () => 
 });
 
 test('a giraffe grazes deeper than the animals it is standing among', () => {
-  // The reason the giraffe is in the scene: its drop is measured from its own height, so it has to
-  // put its head below the backs of everything else in the herd.
+  // The reason the giraffe is in the herd: its drop is measured from its own height, so it has to put
+  // its head below the backs of everything else.
   const giraffe = GRAZER_SPECS.giraffe;
-  for (const kind of ['wildebeest', 'zebra'] as const) {
+  for (const kind of ['elephant', 'rhino'] as const) {
     assert.ok(
       giraffe.height - giraffe.grazeDrop < GRAZER_SPECS[kind].height,
       `a grazing giraffe stands ${(giraffe.height - giraffe.grazeDrop).toFixed(1)}, above a ${kind}`,
     );
+  }
+});
+
+test('every kind names a model, a fitting and a front, or it would be drawn wrong', () => {
+  // The three things that cannot be derived from a file: where it is, which way its head is, and
+  // what to draw it from. A kind missing any of them is a kind drawn at the wrong size or backwards.
+  for (const kind of GRAZER_KINDS) {
+    const spec = GRAZER_SPECS[kind];
+    assert.ok(spec.model, `${kind} has no model`);
+    assert.ok(spec.length > 0, `${kind} has no length`);
+    assert.ok(spec.front === 'positive' || spec.front === 'negative', `${kind} has no front`);
+  }
+});
+
+test('the graze dips the whole animal, and only while it is grazing', () => {
+  // A loaded animal is one merged mesh, so the dip is the only thing carrying the graze. It has to be
+  // there, it has to be bounded, and it has to stop when the animal stops grazing — otherwise every
+  // animal in the herd rocks gently on the spot.
+  const savanna = new Savanna('meadow');
+  for (const grazer of herd('meadow', 12)) {
+    let bobbed = false;
+    for (let t = 0; t < 60; t += 0.05) {
+      const pose = grazerPose(grazer, t, savanna);
+      assert.ok(pose.bob >= 0, `a dipped animal rose by ${pose.bob}`);
+      assert.ok(pose.bob <= GRAZE_BOB + 1e-9, `a dip of ${pose.bob} is past GRAZE_BOB`);
+      if (!pose.headDown) assert.equal(pose.bob, 0, 'an animal that is not grazing should be level');
+      else bobbed = true;
+    }
+    assert.ok(bobbed, `${grazer.kind} never grazed in 60 seconds, so its dip was never exercised`);
   }
 });
 

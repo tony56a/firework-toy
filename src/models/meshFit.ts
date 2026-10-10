@@ -31,11 +31,20 @@ export type Axis = 'x' | 'y' | 'z';
 
 /** How to fit a mesh into this world: what size, along which axis, facing which way. */
 export interface MeshFitOptions {
-  /** Length the mesh's longest axis is scaled to. */
+  /** Length the mesh is scaled to. See `lengthAxis` for which direction that length is measured on. */
   length: number;
   /** Axis the mesh is laid along once fitted. Defaults to x, which is what a pose is measured on. */
   along?: Axis;
-  /** Which end of the longest axis is the front. See {@link FrontEnd}. */
+  /**
+   * Which axis of the mesh's own box is its length.
+   *
+   * Defaults to the longest. That is the right guess for a fish or a boat, where the thing is
+   * longer than it is in any other direction — but it is the wrong guess for a standing animal,
+   * which is usually taller than it is long. Measured that way, a giraffe comes back lying on its
+   * side, correctly scaled and completely unrecognisable.
+   */
+  lengthAxis?: Axis;
+  /** Which end of the length axis is the front. See {@link FrontEnd}. */
   front?: FrontEnd;
 }
 
@@ -84,6 +93,18 @@ function halfTurn(flipping: Axis): readonly [number, number, number] {
 }
 
 /**
+ * Which axis of the bounding box carries the length, and how long it is.
+ *
+ * Returns null for an axis with no usable extent, which is what an unloaded or empty mesh reports.
+ * Treating that as length zero rather than as a fit would put a divide by zero and a NaN matrix into
+ * the scene graph.
+ */
+export function fitAxis(extent: Extent, axis: Axis = longestAxis(extent)?.axis ?? 'x'): number | null {
+  const length = extent[axis];
+  return Number.isFinite(length) && length > 0 ? length : null;
+}
+
+/**
  * Which axis of the bounding box is longest, and how far it is.
  *
  * Returns null for a box with no measurable extent in any direction, which is what an unloaded or
@@ -126,16 +147,18 @@ export function fitMesh(
   options: MeshFitOptions,
 ): MeshFit | null {
   const along = options.along ?? 'x';
-  const longest = longestAxis(extent);
-  if (!longest) return null;
-  const turns: Array<readonly [number, number, number]> = [TURNS_ONTO[along][longest.axis]];
+  // The axis being scaled, which is not necessarily the longest one — see `lengthAxis`.
+  const source = options.lengthAxis ?? longestAxis(extent)?.axis ?? 'x';
+  const measured = fitAxis(extent, source);
+  if (measured === null) return null;
+  const turns: Array<readonly [number, number, number]> = [TURNS_ONTO[along][source]];
   // A half turn about the target axis sends a front that ended up at the far end to the near one. It
   // is a rotation rather than a mirror, so the object turns around to face the other way and stays
   // the right way up.
   if ((options.front ?? 'positive') === 'negative') turns.push(halfTurn(along));
   // The offset has to cancel the centre as it is after every turn, not before them, so it is worked
   // out by running the turns on the scaled centre rather than on the authored one.
-  const scale = options.length / longest.length;
+  const scale = options.length / measured;
   const scaled: BoxOffset = { x: centre.x * scale, y: centre.y * scale, z: centre.z * scale };
   const placed = turns.reduce((p, [rx, ry, rz]) => turnOnce(p, rx, ry, rz), scaled);
   return { scale, turns, offset: [-placed.x, -placed.y, -placed.z] };
