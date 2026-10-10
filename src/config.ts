@@ -1,3 +1,5 @@
+import type { FrontEnd } from './models/meshFit';
+
 export const WORLD_SIZE = 180;
 export const TERRAIN_SEGMENTS = 150;
 export const MAX_TREES = 2400;
@@ -124,7 +126,7 @@ export const FISH_DEPTH = 1.3;
  * a fish is not symmetric front to back but a box is — so this was measured off the file, by finding
  * which end the eyes sit on. Every one of the three fish in the pack agrees.
  */
-export const FISH_NOSE_END = 'negative' as const;
+export const FISH_FRONT_END: FrontEnd = 'negative';
 
 
 /** Peak engine plume length, and how fast it flickers. */

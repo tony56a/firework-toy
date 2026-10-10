@@ -7,8 +7,12 @@ import { FlatGround, type Ground } from '../src/models/ground';
 import { basinCourse, boatPose, ellipseCourse } from '../src/models/sea/boat';
 import { fishPose, hasLanded, leapDuration, leapHeight, leapReach, school } from '../src/models/sea/fish';
 import { Sea } from '../src/models/sea/sea';
-import { fishFit, longestAxis } from '../src/models/sea/fishFit';
+import { fitMesh, longestAxis, type Extent } from '../src/models/meshFit';
 import { edgeFade, waveHeight } from '../src/models/sea/waves';
+
+/** Fits to the size this world draws fish at, which is what every fish-fit test is about. */
+const toWorldSize = (extent: Extent, centre = { x: 0, y: 0, z: 0 }) =>
+  fitMesh(extent, centre, { length: FISH_LENGTH, along: 'x', front: 'positive' });
 
 const HALF = SEA_SIZE / 2;
 
@@ -264,7 +268,7 @@ test('a leap covers further than the fish swims in its own water', () => {
 });
 
 test('a fish mesh is fitted to this world size whatever it arrived as', () => {
-  const fit = fishFit({ x: 40, y: 12, z: 8 }, { x: 0, y: 0, z: 0 });
+  const fit = toWorldSize({ x: 40, y: 12, z: 8 });
   assert.ok(fit, 'a mesh with extent should fit');
   assert.ok(Math.abs(fit.scale * 40 - FISH_LENGTH) < 1e-9, `scaled to ${fit.scale * 40}`);
 });
@@ -273,18 +277,18 @@ test('a fish is fitted nose-along-x whichever axis it was authored on', () => {
   for (const axis of ['x', 'y', 'z'] as const) {
     const extent = axis === 'x' ? { x: 10, y: 3, z: 2 } : axis === 'y' ? { x: 3, y: 10, z: 2 } : { x: 3, y: 2, z: 10 };
     assert.deepEqual(longestAxis(extent), { axis, length: 10 });
-    const fit = fishFit(extent, { x: 0, y: 0, z: 0 })!;
+    const fit = toWorldSize(extent)!;
     // The turn onto x has to be a real quarter turn, so a 10-unit fish becomes a 10-unit fish along
     // x and not a 10-unit fish still standing up. Only the first turn is the fit; the nose fix, if
     // any, is a separate half turn after it.
-    const turned = fit.turns[0].some((a) => Math.abs(a) > 1e-9);
+    const turned = (fit.turns[0] as readonly number[]).some((a: number) => Math.abs(a) > 1e-9);
     assert.equal(turned, axis !== 'x', `axis ${axis} should${axis === 'x' ? ' not' : ''} rotate`);
     assert.equal(fit.turns.length, 1, 'a nose-forward fish needs no second turn');
   }
 });
 
 test('a fish is centred on the origin after fitting, even if the asset sat off at an origin', () => {
-  const fit = fishFit({ x: 10, y: 3, z: 2 }, { x: 100, y: -40, z: 7 })!;
+  const fit = toWorldSize({ x: 10, y: 3, z: 2 }, { x: 100, y: -40, z: 7 })!;
   // An x-long fish is not turned, so its centre offset stays on the axis it was authored on and the
   // offset has to cancel it exactly.
   const [dx, dy, dz] = fit.offset;
@@ -297,7 +301,7 @@ test('a fish authored long-way-down is put on the origin despite being turned to
   // The interesting case: a y-long fish is rotated onto x, so the centre offset it was authored at
   // moves onto a different axis as the mesh turns. Getting this wrong leaves the fish 900 units above
   // the sea, which is invisible rather than obviously broken.
-  const fit = fishFit({ x: 2, y: 10, z: 3 }, { x: 5, y: 900, z: -12 })!;
+  const fit = toWorldSize({ x: 2, y: 10, z: 3 }, { x: 5, y: 900, z: -12 })!;
   const [, , rz] = fit.turns[0];
   assert.ok(Math.abs(rz) > 1e-9, 'a y-long fish is turned onto x');
   assert.ok(Math.abs(fit.scale * 10 - FISH_LENGTH) < 1e-9, 'sized to this world');
@@ -312,8 +316,9 @@ test('a fish exported tail-first is turned round rather than drawn swimming back
   // The pack's fish are all nose-at-negative-z, so this is the case that actually occurs. The nose
   // fix has to come after the turn onto x: put it first and the centre offset is computed through a
   // rotation that is no longer the one applied, and the fish lands somewhere other than the origin.
-  const backwards = fishFit({ x: 3, y: 2, z: 10 }, { x: 0, y: 0, z: 0 }, FISH_LENGTH, 'negative')!;
-  const forwards = fishFit({ x: 3, y: 2, z: 10 }, { x: 0, y: 0, z: 0 }, FISH_LENGTH, 'positive')!;
+const authored = { x: 3, y: 2, z: 10 };
+const backwards = fitMesh(authored, { x: 0, y: 0, z: 0 }, { length: FISH_LENGTH, along: 'x', front: 'negative' })!;
+const forwards = toWorldSize(authored)!;
   assert.equal(forwards.turns.length, 1, 'no extra turn when the nose already points the right way');
   assert.equal(backwards.turns.length, 2, 'a half turn is added to send the nose to +x');
   const [, ry] = backwards.turns[1];
@@ -323,7 +328,11 @@ test('a fish exported tail-first is turned round rather than drawn swimming back
 test('the nose fix still centres a fish that was also authored off-origin', () => {
   // Both halves of the fit have to compose: a tail-first fish sitting 800 units off the origin, in a
   // frame that then gets turned onto x and then turned round again.
-  const fit = fishFit({ x: 3, y: 2, z: 10 }, { x: 40, y: -800, z: 25 }, FISH_LENGTH, 'negative')!;
+  const fit = fitMesh(
+    { x: 3, y: 2, z: 10 },
+    { x: 40, y: -800, z: 25 },
+    { length: FISH_LENGTH, along: 'x', front: 'negative' },
+  )!;
   // Applied to the scaled centre by hand, in the same order the renderer applies them.
   const s = fit.scale;
   let p = { x: 40 * s, y: -800 * s, z: 25 * s };
@@ -347,21 +356,100 @@ test('a mesh with no extent is reported unfit rather than fitted to a NaN', () =
   // null has to come from here.
   for (const extent of [{ x: 0, y: 0, z: 0 }, { x: -3, y: -2, z: -1 }, { x: NaN, y: 1, z: 1 }]) {
     assert.equal(longestAxis(extent), null, `${JSON.stringify(extent)} should not be fittable`);
-    assert.equal(fishFit(extent, { x: 0, y: 0, z: 0 }), null);
+    assert.equal(toWorldSize(extent), null);
   }
 });
 
 test('a mesh flat in one axis still fits, because it only needs one axis to scale by', () => {
   // A fish that is a plane has no thickness, but it still has a length and is still drawable.
-  const fit = fishFit({ x: 0, y: 4, z: 0 }, { x: 0, y: 0, z: 0 })!;
+  const fit = toWorldSize({ x: 0, y: 4, z: 0 })!;
   assert.ok(Math.abs(fit.scale * 4 - FISH_LENGTH) < 1e-9);
+});
+
+/** Applies a fit's turns to a vector, in the order the renderer applies them. */
+function turned(fit: { turns: ReadonlyArray<readonly [number, number, number]> }, p: Extent): Extent {
+  let v = { ...p };
+  for (const [rx, ry, rz] of fit.turns) {
+    const y1 = v.y * Math.cos(rx) - v.z * Math.sin(rx);
+    const z1 = v.y * Math.sin(rx) + v.z * Math.cos(rx);
+    const x2 = v.x * Math.cos(ry) + z1 * Math.sin(ry);
+    const z2 = -v.x * Math.sin(ry) + z1 * Math.cos(ry);
+    v = { x: x2 * Math.cos(rz) - y1 * Math.sin(rz), y: x2 * Math.sin(rz) + y1 * Math.cos(rz), z: z2 };
+  }
+  return v;
+}
+
+const AXES = ['x', 'y', 'z'] as const;
+/** A box of the given size with its longest side on `axis`. */
+const longOn = (axis: 'x' | 'y' | 'z', length: number): Extent =>
+  axis === 'x' ? { x: length, y: 3, z: 2 } : axis === 'y' ? { x: 3, y: length, z: 2 } : { x: 3, y: 2, z: length };
+
+test('a mesh can be fitted along any axis, not just x', () => {
+  // The loader is general: an asset that wants to lie along z says so rather than the fit hardcoding
+  // x. Running the turns on a vector down the long axis has to leave it pointing along the target,
+  // which is what stops an asset laid along z coming back as a fish standing on its tail.
+  for (const along of AXES) {
+    const author = longOn(along, 10);
+    const fit = fitMesh(author, { x: 0, y: 0, z: 0 }, { length: FISH_LENGTH, along })!;
+    assert.ok(Math.abs(fit.scale * 10 - FISH_LENGTH) < 1e-9, `along ${along}, sized to ${fit.scale * 10}`);
+    const probe = turned(fit, { x: along === 'x' ? 10 : 0, y: along === 'y' ? 10 : 0, z: along === 'z' ? 10 : 0 });
+    assert.ok(Math.abs(probe[along] - 10) < 1e-6, `along ${along}, ended at ${probe[along]} instead of 10`);
+    for (const other of AXES.filter((a) => a !== along)) {
+      assert.ok(Math.abs(probe[other]) < 1e-6, `along ${along}, spilled onto ${other} at ${probe[other]}`);
+    }
+  }
+});
+
+test('a mesh authored long-way-down is stood up when fitted along y', () => {
+  // The turn has to be made, not skipped: a z-long box fitted along y with no turn at all would come
+  // back lying flat, which is the mistake the generalised turn table exists to prevent.
+  const stood = fitMesh(longOn('z', 10), { x: 0, y: 0, z: 0 }, { length: FISH_LENGTH, along: 'y' })!;
+  assert.ok((stood.turns[0] as readonly number[]).some((a) => Math.abs(a) > 1e-9), 'stood up onto y');
+  const probe = turned(stood, { x: 0, y: 0, z: 10 });
+  assert.ok(Math.abs(probe.y - 10) < 1e-6, `ended on y at ${probe.y}`);
+});
+
+test('a backwards-facing mesh is turned round whichever axis it is fitted along', () => {
+  // The half turn has to flip the front, and it has to be about an axis perpendicular to the one
+  // being flipped — a half turn about the target axis leaves the target axis alone and fixes nothing.
+  for (const along of AXES) {
+    const author = longOn(along, 10);
+    const backwards = fitMesh(author, { x: 0, y: 0, z: 0 }, { length: FISH_LENGTH, along, front: 'negative' })!;
+    const forwards = fitMesh(author, { x: 0, y: 0, z: 0 }, { length: FISH_LENGTH, along, front: 'positive' })!;
+    assert.equal(forwards.turns.length, 1, `along ${along}, front already forward`);
+    assert.equal(backwards.turns.length, 2, `along ${along}, a half turn is added`);
+    // The two fits must land on opposite ends, which is the whole point of adding the half turn.
+    const probe = { x: along === 'x' ? 10 : 0, y: along === 'y' ? 10 : 0, z: along === 'z' ? 10 : 0 };
+    const front = turned(forwards, probe);
+    const back = turned(backwards, probe);
+    for (const axis of AXES) {
+      assert.ok(
+        Math.abs(front[axis] + back[axis]) < 1e-6,
+        `along ${along}, half turn did not flip ${axis}: ${front[axis]} vs ${back[axis]}`,
+      );
+    }
+  }
+});
+
+test('fitting a mesh along the axis it was authored on needs no turn at all', () => {
+  // Every entry in the turn table has to exist, identity included. A missing one is undefined rather
+  // than absent, and it reaches three.js as a NaN rotation that silently draws nothing.
+  for (const along of AXES) {
+    const fit = fitMesh(longOn(along, 10), { x: 0, y: 0, z: 0 }, { length: FISH_LENGTH, along })!;
+    const turn = fit.turns[0];
+    assert.ok(Array.isArray(turn), `along ${along}, first turn is defined`);
+    assert.ok(
+      (turn as readonly number[]).every((a) => Math.abs(a) < 1e-9),
+      `along ${along}, turns by ${JSON.stringify(turn)}`,
+    );
+  }
 });
 
 test('fitting does not depend on the size of the asset it was given', () => {
   // The same fish at 100x scale has to come out the same size, which is the point of measuring
   // rather than hardcoding.
-  const small = fishFit({ x: 0.5, y: 0.2, z: 0.1 }, { x: 0, y: 0, z: 0 })!;
-  const large = fishFit({ x: 500, y: 200, z: 100 }, { x: 0, y: 0, z: 0 })!;
+const small = toWorldSize({ x: 0.5, y: 0.2, z: 0.1 })!;
+const large = toWorldSize({ x: 500, y: 200, z: 100 })!;
   assert.ok(Math.abs(small.scale * 0.5 - large.scale * 500) < 1e-9);
   assert.ok(Math.abs(large.scale * 500 - FISH_LENGTH) < 1e-9);
 });

@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import { BOAT_SPEED_DEFAULT, FISH_MODEL_URL, SEA_SIZE, WAVE_AMPLITUDE } from '../config';
+import { BOAT_SPEED_DEFAULT, FISH_FRONT_END, FISH_LENGTH, FISH_MODEL_URL, SEA_SIZE, WAVE_AMPLITUDE } from '../config';
 import type { AppState } from '../models/appState';
 import type { CameraFraming } from '../models/cameraFraming';
 import type { FireworkSim } from '../models/fireworks';
@@ -7,7 +7,7 @@ import { basinCourse, boatPose, type BoatCourse } from '../models/sea/boat';
 import { fishPose, hasLanded, school, type Fish } from '../models/sea/fish';
 import { Sea } from '../models/sea/sea';
 import { BoatView } from '../render/boatView';
-import { loadFish, type FishMesh } from '../render/fishAssets';
+import { loadGltf, type LoadedMesh } from '../render/gltfAssets';
 import { FishView } from '../render/fishView';
 import { SeaView } from '../render/seaView';
 import { SceneBase, type SceneReport } from './sceneBase';
@@ -42,7 +42,7 @@ export class SeaScene extends SceneBase {
   /** The instant the previous frame was drawn at, which is how a landing is recognised. */
   private lastTime = 0;
   /** The fitted downloaded fish, kept so a reseeded school can be rebuilt with them. */
-  private asset: FishMesh[] = [];
+  private asset: LoadedMesh[] = [];
 
   constructor(sim: FireworkSim, report: SceneReport, seed: string) {
     super(sim, report);
@@ -61,7 +61,10 @@ export class SeaScene extends SceneBase {
    * the whole scene appearing. The fallback fish drawn in code is already on screen by then.
    */
   private loadFish(): void {
-    void loadFish(FISH_MODEL_URL)
+    void loadGltf(FISH_MODEL_URL, {
+      fit: { length: FISH_LENGTH, along: 'x', front: FISH_FRONT_END },
+      materials: { flatShading: true, roughnessFloor: 0.6 },
+    })
       .then((fish) => {
         if (fish.length === 0) return;
         this.asset = fish;
