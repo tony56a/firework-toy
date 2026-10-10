@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   PAD_RADIUS, ROCKET_HEIGHT, ROCKET_RADIUS, TOWER_HEIGHT, TOWER_WIDTH,
 } from '../config';
-import { ROCKET_SPOT, TOWER_SPOT, siteBuildings, type Building } from '../models/site';
+import { ROCKET_SPOT, TOWER_SPOT, siteBuildings, type Building } from '../models/concrete/site';
 
 const merged = (parts: THREE.BufferGeometry[]): THREE.BufferGeometry =>
   mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)))!;

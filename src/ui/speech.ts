@@ -1,4 +1,4 @@
-import { SPEECH_LOCALES, type LanguageId } from '../models/countdownPhrases';
+import { SPEECH_LOCALES, type LanguageId } from '../models/concrete/countdownPhrases';
 
 /**
  * Speaks the countdown using the browser's own speech synthesis, so there is nothing to install and

@@ -7,7 +7,7 @@ import {
 import { ConcreteMaterial, concreteSlabGeometry } from '../src/render/concreteMaterial';
 import { RIM_DROP } from '../src/render/concreteView';
 import { injectedSources } from './helpers/concreteShaderSource';
-import { CONCRETE_GROUND } from '../src/models/concrete';
+import { CONCRETE_GROUND } from '../src/models/concrete/slab';
 
 /**
  * The concrete surface is a fragment shader now, so most of what the old model tests checked cannot

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { roundedRectTrack, type Track } from '../src/models/track';
+import { roundedRectTrack, type Track } from '../src/models/sky/track';
 
 const WIDTH = 52;
 const DEPTH = 28;

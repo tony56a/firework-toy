@@ -4,7 +4,7 @@ import { WORLD_SIZE } from '../src/config';
 import { DEFAULT_STATE } from '../src/models/appState';
 import { FlatGround, type Ground } from '../src/models/ground';
 import { SCENE_IDS, SCENES } from '../src/models/scenes';
-import { Terrain } from '../src/models/terrain';
+import { Terrain } from '../src/models/forest/terrain';
 
 test('a flat ground is level everywhere and spans the world', () => {
   const flat: Ground = new FlatGround();

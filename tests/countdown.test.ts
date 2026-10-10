@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { COUNTDOWN_MAX, COUNTDOWN_MIN, COUNTDOWN_TICK } from '../src/config';
-import { countdownLength, countdownOver, countdownStep } from '../src/models/countdown';
+import { countdownLength, countdownOver, countdownStep } from '../src/models/concrete/countdown';
 import {
   COUNTDOWN_PHRASES, LANGUAGE_IDS, LANGUAGE_LABELS, NUMBER_KEYS, numberKey, SPEECH_LOCALES,
   phrase, type CountdownKey, type NumberKey,
-} from '../src/models/countdownPhrases';
+} from '../src/models/concrete/countdownPhrases';
 
 const KEYS: CountdownKey[] = [...NUMBER_KEYS, 'launch', 'hold'];
 

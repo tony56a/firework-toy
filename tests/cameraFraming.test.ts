@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import * as THREE from 'three';
 import { CameraRig } from '../src/render/camera/rig';
-import { CONCRETE_GROUND } from '../src/models/concrete';
+import { CONCRETE_GROUND } from '../src/models/concrete/slab';
 import {
   LAUNCH_BURST_MAX, LAUNCH_BURST_MIN, TABLE_DEPTH, TABLE_HEIGHT, TABLE_WIDTH, WORLD_SIZE,
 } from '../src/config';

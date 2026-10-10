@@ -1,5 +1,5 @@
-import { LAUNCH_BURST_DEFAULT, LAUNCH_CLIMB, LAUNCH_HOLD, LAUNCH_RESET } from '../config';
-import { clamp } from '../core/random';
+import { LAUNCH_BURST_DEFAULT, LAUNCH_CLIMB, LAUNCH_HOLD, LAUNCH_RESET } from '../../config';
+import { clamp } from '../../core/random';
 
 /**
  * The launch sequence as pure maths: given how long it has been since the button was pressed, where

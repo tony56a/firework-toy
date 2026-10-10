@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { MAX_TREES } from '../src/config';
-import { Terrain } from '../src/models/terrain';
-import { scatterTrees } from '../src/models/trees';
+import { Terrain } from '../src/models/forest/terrain';
+import { scatterTrees } from '../src/models/forest/trees';
 
 test('terrain is deterministic per seed and differs between seeds', () => {
   const a = new Terrain('meadow');

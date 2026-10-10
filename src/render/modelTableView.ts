@@ -4,7 +4,7 @@ import {
   TABLE_DEPTH, TABLE_HEIGHT, TABLE_LEG_HEIGHT, TABLE_TOP_THICKNESS, TABLE_WIDTH,
 } from '../config';
 import { MODEL_KINDS } from '../models/modelKinds';
-import { tableLayout, tableLegPositions, type TableModel } from '../models/tableModels';
+import { tableLayout, tableLegPositions, type TableModel } from '../models/sky/tableModels';
 import { LEAF_MATERIAL, TRUNK_MATERIAL, modelGeometry, modelLeafColor } from './modelGeometry';
 
 const TOP_COLOR = 0x7a5c3e;

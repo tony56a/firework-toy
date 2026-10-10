@@ -1,8 +1,8 @@
 import {
   BUILDING_CLEARANCE, BUILDING_MAX_DEPTH, BUILDING_MAX_HEIGHT, BUILDING_MIN_DEPTH, BUILDING_MIN_HEIGHT,
   CONCRETE_SIZE, PAD_RADIUS, TOWER_HEIGHT, TOWER_OFFSET, TOWER_WIDTH,
-} from '../config';
-import { range, rngFromSeed, type Rng } from '../core/random';
+} from '../../config';
+import { range, rngFromSeed, type Rng } from '../../core/random';
 
 /**
  * The launch site on the concrete pad: where the rocket stands, where the tower is, and where the

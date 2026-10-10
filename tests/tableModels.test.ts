@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { MODEL_SPACING, TABLE_DEPTH, TABLE_HEIGHT, TABLE_LEG_HEIGHT, TABLE_LEG_INSET, TABLE_TOP_THICKNESS, TABLE_WIDTH, TRACK_INSET } from '../src/config';
 import { MODEL_KINDS } from '../src/models/modelKinds';
-import { TABLE_MODELS, TRACK_BOUNDS, tableLayout, tableLegPositions } from '../src/models/tableModels';
+import { TABLE_MODELS, TRACK_BOUNDS, tableLayout, tableLegPositions } from '../src/models/sky/tableModels';
 
 test('models are spread evenly and centred on the table', () => {
   const spots = tableLayout(4);

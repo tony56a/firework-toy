@@ -5,7 +5,7 @@ import {
 } from '../src/config';
 import {
   clashesWithPad, offSlab, ROCKET_SPOT, siteBuildings, TOWER_SIZE, TOWER_SPOT, tryPlaceBuilding,
-} from '../src/models/site';
+} from '../src/models/concrete/site';
 import { rngFromSeed } from '../src/core/random';
 
 const HALF = CONCRETE_SIZE / 2;

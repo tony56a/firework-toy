@@ -1,5 +1,5 @@
-import { MAX_TREES } from '../config';
-import { rngFromSeed } from '../core/random';
+import { MAX_TREES } from '../../config';
+import { rngFromSeed } from '../../core/random';
 import type { Terrain } from './terrain';
 
 export type TreeKind = 'pine' | 'oak';

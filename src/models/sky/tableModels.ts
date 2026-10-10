@@ -1,5 +1,5 @@
-import { MODEL_SPACING, TABLE_DEPTH, TABLE_LEG_HEIGHT, TABLE_LEG_INSET, TABLE_WIDTH, TRACK_INSET } from '../config';
-import type { ModelKind } from './modelKinds';
+import { MODEL_SPACING, TABLE_DEPTH, TABLE_LEG_HEIGHT, TABLE_LEG_INSET, TABLE_WIDTH, TRACK_INSET } from '../../config';
+import type { ModelKind } from '../modelKinds';
 
 /**
  * The models on show on the table, in the order they are placed. Growing the collection means

@@ -1,4 +1,4 @@
-import { COUNTDOWN_TICK } from '../config';
+import { COUNTDOWN_TICK } from '../../config';
 import { NUMBER_KEYS, numberKey, type CountdownKey, type NumberKey } from './countdownPhrases';
 
 /**

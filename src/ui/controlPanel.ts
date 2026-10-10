@@ -6,7 +6,7 @@ import type { Store } from '../core/store';
 import type { AppState } from '../models/appState';
 import { CAMERA_MODES, CAMERA_MODE_IDS } from '../models/cameraModes';
 import { PALETTES, PALETTE_IDS, swatchColors } from '../models/fireworkPalettes';
-import { LANGUAGE_IDS, LANGUAGE_LABELS } from '../models/countdownPhrases';
+import { LANGUAGE_IDS, LANGUAGE_LABELS } from '../models/concrete/countdownPhrases';
 import { SCENES, SCENE_IDS, type SceneId } from '../models/scenes';
 import { TIME_IDS, TIME_PRESETS } from '../models/timeOfDay';
 

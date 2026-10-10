@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PLUME_FLICKER, PLUME_LENGTH, ROCKET_HEIGHT, ROCKET_RADIUS } from '../config';
-import { launchFinished, launchState, type LaunchState } from '../models/launch';
-import { ROCKET_SPOT } from '../models/site';
+import { launchFinished, launchState, type LaunchState } from '../models/concrete/launch';
+import { ROCKET_SPOT } from '../models/concrete/site';
 
 const merged = (parts: THREE.BufferGeometry[]): THREE.BufferGeometry =>
   mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)))!;

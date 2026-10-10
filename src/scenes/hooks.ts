@@ -1,4 +1,4 @@
-import type { LanguageId } from '../models/countdownPhrases';
+import type { LanguageId } from '../models/concrete/countdownPhrases';
 
 /**
  * The hooks a scene can call back into the app for. Scenes do not reach for browser APIs or the

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { TRACK_RADIUS } from '../src/config';
-import { roundedRectTrack, wheelAngle, type TrackPoint } from '../src/models/track';
+import { roundedRectTrack, wheelAngle, type TrackPoint } from '../src/models/sky/track';
 
 /**
  * The train view derives its vehicle positions straight from the track, so these check the

@@ -4,7 +4,7 @@ import {
   CONCRETE_SIZE, LAUNCH_BURST_DEFAULT, LAUNCH_BURST_MAX, LAUNCH_BURST_MIN, LAUNCH_CLIMB,
   LAUNCH_HOLD, PAD_RADIUS, PLUME_LENGTH, ROCKET_HEIGHT, SITE_VIEWER_Z, TOWER_OFFSET,
 } from '../src/config';
-import { launchFinished, launchState, LAUNCH_DURATION, shouldTrack } from '../src/models/launch';
+import { launchFinished, launchState, LAUNCH_DURATION, shouldTrack } from '../src/models/concrete/launch';
 
 test('nothing has happened before the button is pressed', () => {
   for (const t of [0, -1, -100]) {

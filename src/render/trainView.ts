@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { TRAIN_SPEED_DEFAULT } from '../config';
-import { type Track, wheelAngle } from '../models/track';
+import { type Track, wheelAngle } from '../models/sky/track';
 
 /** How far apart vehicles sit along the track, and how many of them there are. */
 const VEHICLE_COUNT = 4;

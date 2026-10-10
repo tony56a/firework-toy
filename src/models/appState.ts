@@ -1,6 +1,6 @@
 import { COUNTDOWN_DEFAULT, LAUNCH_BURST_DEFAULT, TRAIN_SPEED_DEFAULT } from '../config';
 import type { CameraMode } from './cameraModes';
-import type { LanguageId } from './countdownPhrases';
+import type { LanguageId } from './concrete/countdownPhrases';
 import type { PaletteId } from './fireworkPalettes';
 import type { SceneId } from './scenes';
 import type { TimeOfDay } from './timeOfDay';

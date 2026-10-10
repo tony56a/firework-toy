@@ -1,5 +1,5 @@
-import { CONCRETE_SIZE } from '../config';
-import type { Ground } from './ground';
+import { CONCRETE_SIZE } from '../../config';
+import type { Ground } from '../ground';
 
 /**
  * The ground for the concrete scene: a flat slab of a known size.

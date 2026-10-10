@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TERRAIN_SEGMENTS } from '../config';
-import type { Terrain } from '../models/terrain';
+import type { Terrain } from '../models/forest/terrain';
 
 const GRASS_A = new THREE.Color(0x5f9a45);
 const GRASS_B = new THREE.Color(0x8db85a);
