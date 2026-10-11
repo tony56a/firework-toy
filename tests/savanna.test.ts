@@ -236,14 +236,56 @@ test('a giraffe grazes deeper than the animals it is standing among', () => {
   }
 });
 
-test('every kind names a model, a fitting and a front, or it would be drawn wrong', () => {
+test('every kind names a model, a scale axis and a set of turns, or it would be drawn wrong', () => {
   // The three things that cannot be derived from a file: where it is, which way its head is, and
   // what to draw it from. A kind missing any of them is a kind drawn at the wrong size or backwards.
   for (const kind of GRAZER_KINDS) {
     const spec = GRAZER_SPECS[kind];
     assert.ok(spec.model, `${kind} has no model`);
     assert.ok(spec.length > 0, `${kind} has no length`);
-    assert.ok(spec.front === 'positive' || spec.front === 'negative', `${kind} has no front`);
+    assert.ok(spec.lengthAxis, `${kind} has no length axis`);
+    assert.ok(spec.turns.length > 0, `${kind} has no turns`);
+    for (const turn of spec.turns) {
+      assert.equal(turn.length, 3, `${kind} has a turn that is not an XYZ triple`);
+      for (const angle of turn) {
+        assert.ok(Number.isFinite(angle), `${kind} has a turn of ${angle}`);
+      }
+    }
+  }
+});
+
+test('the grazers stand up: their turns put the long axis along x and the head at +x', () => {
+  // The turns are written by hand, so this is the only thing standing between a typo in one of them
+  // and an animal that is laid on its side or walking backwards. Applied to a box, each set of turns
+  // has to leave the longest side along x and the front at the +x end.
+  const run = (turns: ReadonlyArray<readonly [number, number, number]>, v: { x: number; y: number; z: number }) => {
+    let p = v;
+    for (const [rx, ry, rz] of turns) {
+      const y1 = p.y * Math.cos(rx) - p.z * Math.sin(rx);
+      const z1 = p.y * Math.sin(rx) + p.z * Math.cos(rx);
+      const x2 = p.x * Math.cos(ry) + z1 * Math.sin(ry);
+      const z2 = -p.x * Math.sin(ry) + z1 * Math.cos(ry);
+      p = { x: x2 * Math.cos(rz) - y1 * Math.sin(rz), y: x2 * Math.sin(rz) + y1 * Math.cos(rz), z: z2 };
+    }
+    return p;
+  };
+  for (const kind of GRAZER_KINDS) {
+    const spec = GRAZER_SPECS[kind];
+    // A vector down the animal's own length, pointing from tail to head. The head sits at whichever
+    // end of that axis it sits at in the file, which differs per animal — that is the fact the turns
+    // exist to correct. After fitting, it has to arrive at +x whatever it started as.
+    const sign = spec.lengthAxis === 'z' ? -1 : 1;
+    const len = sign * 7.3;
+    const long = { x: spec.lengthAxis === 'x' ? len : 0, y: spec.lengthAxis === 'y' ? len : 0, z: spec.lengthAxis === 'z' ? len : 0 };
+    const turned = run(spec.turns, long);
+    assert.ok(Math.abs(turned.x - 7.3) < 1e-6, `${kind}: head ended on x at ${turned.x}, wanted +7.3`);
+    assert.ok(Math.abs(turned.y) < 1e-6 && Math.abs(turned.z) < 1e-6, `${kind}: length spilled off x`);
+    // And the animal must still be the right way up. Probed with a bare up vector, because a probe
+    // that has any x in it cannot see a roll about x at all — rotating about x leaves a vector lying
+    // along x exactly where it was, which is how a tipped-on-its-side giraffe passes a length check.
+    const up = run(spec.turns, { x: 0, y: 1, z: 0 });
+    assert.ok(Math.abs(up.x) < 1e-6 && Math.abs(up.y - 1) < 1e-6 && Math.abs(up.z) < 1e-6,
+      `${kind}: tipped the animal over, up now points ${up.x.toFixed(2)},${up.y.toFixed(2)},${up.z.toFixed(2)}`);
   }
 });
 

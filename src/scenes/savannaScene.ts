@@ -67,7 +67,7 @@ export class SavannaScene extends SceneBase {
       if (!url) continue;
       const spec = GRAZER_SPECS[kind];
       void loadGltf(url, {
-        fit: { length: spec.length, along: 'x', lengthAxis: spec.lengthAxis, front: spec.front },
+        fit: { length: spec.length, lengthAxis: spec.lengthAxis, turns: spec.turns },
         materials: { flatShading: true, roughnessFloor: 0.7 },
       })
         .then((loaded) => {

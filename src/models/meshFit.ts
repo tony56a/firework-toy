@@ -44,8 +44,18 @@ export interface MeshFitOptions {
    * side, correctly scaled and completely unrecognisable.
    */
   lengthAxis?: Axis;
-  /** Which end of the length axis is the front. See {@link FrontEnd}. */
+  /** Which end of the length axis is the front. See {@link FrontEnd}. Ignored if `turns` is given. */
   front?: FrontEnd;
+  /**
+   * Rotations to apply in order, instead of the ones `along` and `front` would work out.
+   *
+   * For an asset whose orientation has been measured rather than deduced. The turn table answers
+   * "which way is this axis facing", which is the right question for a model that was exported on
+   * some arbitrary axis. It is the wrong question for one whose whole pose is a known fact — three
+   * quarter turns and a half turn, read off a particular file — because the answer stops being
+   * derived and starts being a number that has to be believed.
+   */
+  turns?: ReadonlyArray<readonly [number, number, number]>;
 }
 
 /** How to turn a mesh of some size into one drawn at a known size, axis and facing. */
@@ -133,13 +143,15 @@ function turnOnce(p: BoxOffset, rx: number, ry: number, rz: number): BoxOffset {
 }
 
 /**
- * How to fit a mesh with this bounding box, so that it draws at `length` along `along`, facing the way
- * `front` says, with its centre on the origin.
+ * How to fit a mesh with this bounding box, so that it draws at `length`, along `along`, facing the
+ * way `front` says, with its centre on the origin.
  *
- * `front` is which end of the longest axis is the front, which no bounding box can tell you: an
+ * `front` is which end of the length axis is the front, which no bounding box can tell you: an
  * object is not symmetric front to back, but a box is. It is measured once by looking at the model —
  * here by finding which end a fish's eyes are at — and then passed in, because it is the one thing
  * about an imported asset that cannot be derived.
+ *
+ * `turns` overrides the rotation entirely for an asset whose pose has been read off its file.
  */
 export function fitMesh(
   extent: Extent,
@@ -151,11 +163,13 @@ export function fitMesh(
   const source = options.lengthAxis ?? longestAxis(extent)?.axis ?? 'x';
   const measured = fitAxis(extent, source);
   if (measured === null) return null;
-  const turns: Array<readonly [number, number, number]> = [TURNS_ONTO[along][source]];
+  const turns: Array<readonly [number, number, number]> = options.turns
+    ? [...options.turns]
+    : [TURNS_ONTO[along][source]];
   // A half turn about the target axis sends a front that ended up at the far end to the near one. It
   // is a rotation rather than a mirror, so the object turns around to face the other way and stays
   // the right way up.
-  if ((options.front ?? 'positive') === 'negative') turns.push(halfTurn(along));
+  if (!options.turns && (options.front ?? 'positive') === 'negative') turns.push(halfTurn(along));
   // The offset has to cancel the centre as it is after every turn, not before them, so it is worked
   // out by running the turns on the scaled centre rather than on the authored one.
   const scale = options.length / measured;

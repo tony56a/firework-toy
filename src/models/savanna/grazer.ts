@@ -3,7 +3,7 @@ import {
   SAVANNA_SIZE,
 } from '../../config';
 import { clamp, range, rngFromSeed } from '../../core/random';
-import type { Axis, FrontEnd } from '../meshFit';
+import type { Axis } from '../meshFit';
 import type { Ground } from '../ground';
 
 /**
@@ -44,34 +44,54 @@ export interface GrazerSpec {
   stride: number;
   /** The glb to draw this kind from, or null to draw it in code. */
   model: string | null;
-  /**
-   * Which end of a downloaded model's longest axis its head is at.
-   *
-   * A bounding box cannot tell you — an animal is not symmetric front to back but a box is — so each
-   * of these was measured off its file. Measured by looking, and by the parts that only exist at one
-   * end: the elephant's tusks and the rhino's horns are the two that gave it away.
-   */
+  /** Which axis of a downloaded model's own box is nose to tail. Used to work out the scale. */
   lengthAxis: Axis;
-  front: FrontEnd;
+  /**
+   * The rotations that stand a downloaded model up and point it along +x, as XYZ Euler triples in
+   * radians, applied in order.
+   *
+   * Written out per animal rather than derived from an axis and a facing, because a downloaded
+   * animal's pose is a measured fact about one particular file and there is nothing to derive. Each
+   * of these was read off its file by a feature that only exists at one end:
+   *
+   * - elephant: the +x end reaches down to −2.36 against a −1.9 body floor, which is its trunk
+   *   hanging below the head, so the head is already at +x and nothing needs turning.
+   * - giraffe: the +x end tops out at 4.89 (head and ossicones) while the −x end bottoms at
+   *   −4.89 (feet), so likewise the head is already at +x.
+   * - rhino: its ends are within 0.06 of each other in height, so height says nothing. Its horns are
+   *   the two small meshes at raw z ≈ −1.2 and −1.4, so the head is at −z; a quarter turn about y
+   *   lays −z onto −x, and the half turn after it sends the head to +x.
+   *
+   * Worth knowing: reading these off a render is not good enough. All three were first written as
+   * a facing and a derived turn, from looking at a picture, and the picture was misread — the
+   * elephant and the giraffe came out facing backwards. They are numbers now because they were
+   * measured, not because they were seen.
+   */
+  turns: ReadonlyArray<readonly [number, number, number]>;
 }
+
+const HALF_PI = Math.PI / 2;
+const NO_TURNS: ReadonlyArray<readonly [number, number, number]> = [[0, 0, 0]];
+/** Lay raw −z onto −x, then turn the animal round so its head faces +x. */
+const RHINO_TURNS: ReadonlyArray<readonly [number, number, number]> = [[0, HALF_PI, 0], [0, Math.PI, 0]];
 
 export const GRAZER_SPECS: Readonly<Record<GrazerKind, GrazerSpec>> = {
   // Heights are the measured heights of the fitted models, so the drawn fallback is not a different
   // size from the animal that replaces it a moment later.
   elephant: {
     length: 7, height: 4.7, grazeDrop: 1.9, neck: 0.3, stride: 0.8,
-    model: ELEPHANT_MODEL_URL, lengthAxis: 'x', front: 'positive',
+    model: ELEPHANT_MODEL_URL, lengthAxis: 'x', turns: NO_TURNS,
   },
   // Authored standing and 519 units tall, in centimetres. Its length is on x, not on the y it is
   // tallest in, which is the whole reason `lengthAxis` exists.
   giraffe: {
     length: 6.5, height: 9.8, grazeDrop: 7.5, neck: 1.2, stride: 1.15,
-    model: GIRAFFE_MODEL_URL, lengthAxis: 'x', front: 'positive',
+    model: GIRAFFE_MODEL_URL, lengthAxis: 'x', turns: NO_TURNS,
   },
   // The only one of the three that is longest nose to tail, and the only rigged one: see its URL.
   rhino: {
     length: 5, height: 2.6, grazeDrop: 1.2, neck: 0.28, stride: 0.75,
-    model: RHINO_MODEL_URL, lengthAxis: 'z', front: 'negative',
+    model: RHINO_MODEL_URL, lengthAxis: 'z', turns: RHINO_TURNS,
   },
 };
 
