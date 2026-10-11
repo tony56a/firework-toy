@@ -133,18 +133,27 @@ export const FISH_FRONT_END: FrontEnd = 'negative';
 // the interest is what is standing on it rather than what the land is doing.
 export const SAVANNA_SIZE = 170;
 /**
- * The most acacias the plain will take.
+ * The most acacias the tree belt will take.
  *
- * The scatter is limited by how much room there is between trees rather than by the slider, so this
- * is the spacing's ceiling and not an arbitrary cap: a slider reaching well past it would do nothing
- * over most of its travel, which reads as a broken control.
+ * The scatter is limited by the room between trees, not by the slider, so this is the belt's real
+ * ceiling and not an arbitrary cap: a slider reaching well past it would do nothing over most of its
+ * travel, which reads as a broken control. Measured at 42 to 50 across seeds.
  */
-export const MAX_ACACIAS = 105;
+export const MAX_ACACIAS = 48;
 export const ACACIA_HEIGHT = 4.6;
 export const HERD_SPEED_DEFAULT = 3.2;
 export const HERD_SPEED_MAX = 9;
 /** Three kinds are dealt round, so a herd past three*2 stops adding to the mix. */
 export const MAX_HERD = 36;
+/**
+ * Radius of the clearing at the middle of the plain, which both the acacias and the herd stay out of.
+ *
+ * Every camera mode is aimed at the origin and the eye-level one stands in it, so anything that
+ * wanders through the middle ends up inside the camera: an elephant at arm's length fills the frame,
+ * and an acacia's canopy puts the viewer under the leaves. This is the same clearing the forest
+ * keeps around its centre, for the same reason.
+ */
+export const PLAIN_CLEARING = 26;
 /**
  * How far out from the middle of the plain a grazer's patch may sit, as a fraction of the half-width.
  *

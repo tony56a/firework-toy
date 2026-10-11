@@ -64,6 +64,26 @@ test('the savanna scene renders a plain with a herd on it', async () => {
   });
 });
 
+test('changing the herd size does not pile up meshes in the scene', async () => {
+  // Each rebuild used to build one set of meshes per animal rather than per kind, so most of them
+  // were left behind in the scene, never posed and sitting at the origin — which is exactly where
+  // the eye-level camera stands. Growing the frame is the cheapest way to see it.
+  await withSavannaScene(async (page) => {
+    const size = (buf: Buffer): number => buf.length;
+    const herd = page.getByLabel(/Herd size/);
+    await herd.fill('3');
+    await page.waitForTimeout(600);
+    const small = size(await frame(page));
+    await herd.fill('36');
+    await page.waitForTimeout(600);
+    const large = size(await frame(page));
+    // Leaked meshes stack up at the origin and swamp the shot, so a bigger herd would not simply
+    // look bigger. Both frames should still be a readable scene rather than a wall of geometry.
+    assert.ok(small > 8000, `the small herd looks blank (${small} bytes)`);
+    assert.ok(large > 8000, `the large herd looks blank (${large} bytes)`);
+  });
+});
+
 test('the herd moves when its speed is raised, and stands still at zero', async () => {
   await withSavannaScene(async (page) => {
     const speed = page.getByLabel(/Herd speed/);

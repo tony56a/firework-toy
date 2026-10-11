@@ -1,5 +1,5 @@
 import type * as THREE from 'three';
-import { HERD_SPEED_DEFAULT, SAVANNA_SIZE } from '../config';
+import { HERD_SPEED_DEFAULT, PLAIN_CLEARING, SAVANNA_SIZE } from '../config';
 import type { AppState } from '../models/appState';
 import type { CameraFraming } from '../models/cameraFraming';
 import type { FireworkSim } from '../models/fireworks';
@@ -13,6 +13,21 @@ import { SavannaView } from '../render/savannaView';
 import { SceneBase, type SceneReport } from './sceneBase';
 
 /**
+ * Where the viewer stands, out on the open grass beyond the tree belt.
+ *
+ * The origin is where the camera looks, not where it stands, and conflating the two is what put an
+ * elephant's flank across the lens: keeping the herd away from the origin to protect the eye-level
+ * camera also kept it away from the middle of the plain, which is the one place every other camera
+ * mode is pointed. Standing off to one side lets the herd use the middle and gives the viewer
+ * somewhere clear to stand.
+ *
+ * On the −z side, because that is the side the rig's default look direction faces back toward the
+ * middle from. Stated here rather than left to chance: the rig has one default heading for every
+ * scene, and this is the side of the plain that happens to point at it.
+ */
+const VIEWER = { x: 0, z: -SAVANNA_SIZE * 0.38 };
+
+/**
  * A savanna: dry ground, flat-topped acacias, and a herd of grazers wandering between them.
  *
  * The herd is the subject rather than the land, so the ground is left flat and open and the trees are
@@ -20,8 +35,22 @@ import { SceneBase, type SceneReport } from './sceneBase';
  * and rockets come from SceneBase, and the herd is what is worth watching instead.
  */
 export class SavannaScene extends SceneBase {
-  /** The whole plain is the subject, and the viewer stands on it rather than on a slab. */
-  readonly framing: CameraFraming = { radius: SAVANNA_SIZE / 2, surface: 0 };
+  /**
+   * Framed on the herd rather than on the whole plain.
+   *
+   * The plain spans 170, but its subject is a handful of animals rather than the ground: framed on
+   * its full half-width the orbit camera sat 90 units out, where a seven-unit elephant is a smudge.
+   * Pulled in, the animals read at roughly twice the size.
+   *
+   * Not pulled in further than this, because one radius sets every camera: the rig puts ridge and
+   * flyover at fixed fractions of it, and too small a radius drops both of them into the acacias.
+   * The tree belt stopping short of them (`outerReach`) is the other half of that arrangement.
+   */
+  readonly framing: CameraFraming = {
+    radius: SAVANNA_SIZE * 0.42,
+    surface: 0,
+    eye: VIEWER,
+  };
   private readonly groundView: SavannaView;
   private readonly acaciaView: AcaciaView;
   private herdView: HerdView;
@@ -121,7 +150,7 @@ export class SavannaScene extends SceneBase {
    * a different size gives a visibly different set of them standing on the same ground.
    */
   private rebuildHerd(seed: string, size: number): void {
-    this.grazers = herd(seed, size, SAVANNA_SIZE);
+    this.grazers = herd(seed, size, SAVANNA_SIZE, 8, PLAIN_CLEARING, VIEWER);
     // The instanced meshes were built for the old herd, so they go and are made again for this one.
     this.herdView.dispose();
     this.herdView = new HerdView(this.three);

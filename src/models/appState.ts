@@ -54,7 +54,7 @@ export const DEFAULT_STATE: AppState = {
   autoLaunchInterval: 1.5,
   trainSpeed: TRAIN_SPEED_DEFAULT,
   boatSpeed: BOAT_SPEED_DEFAULT,
-  acaciaCount: 85,
+  acaciaCount: 44,
   herdSize: 18,
   herdSpeed: HERD_SPEED_DEFAULT,
   countDownLanguage: 'en',

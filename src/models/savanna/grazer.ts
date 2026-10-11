@@ -1,6 +1,6 @@
 import {
-  ELEPHANT_MODEL_URL, GIRAFFE_MODEL_URL, GRAZE_BOB, GRAZE_REACH, HERD_SPEED_DEFAULT, RHINO_MODEL_URL,
-  SAVANNA_SIZE,
+  ELEPHANT_MODEL_URL, GIRAFFE_MODEL_URL, GRAZE_BOB, GRAZE_REACH, HERD_SPEED_DEFAULT, PLAIN_CLEARING,
+  RHINO_MODEL_URL, SAVANNA_SIZE,
 } from '../../config';
 import { clamp, range, rngFromSeed } from '../../core/random';
 import type { Axis } from '../meshFit';
@@ -166,8 +166,14 @@ function wander(grazer: Grazer, time: number, pace: number): { x: number; z: num
   };
 }
 
-/** How far ahead to sample the wander to get a heading. Any small step gives the same direction. */
-const YAW_EPSILON = 0.05;
+/**
+ * How far ahead to sample the wander to get a heading.
+ *
+ * Small, because this is a finite difference and the error grows with how far the path curves across
+ * the step. At 0.05s the estimate was measurably behind the animal's real heading on the tighter
+ * wander, which showed up as a head that pointed a few degrees off while walking.
+ */
+const YAW_EPSILON = 0.01;
 
 /**
  * Where a grazer is and what it is doing at a given time.
@@ -238,12 +244,45 @@ export function grazeAngle(spec: GrazerSpec): number {
  * Patches are kept apart so the kinds do not walk through each other. `spacing` is the room left
  * around each patch as well as between them, which is what stops two kinds overlapping at the one
  * place their patches happen to be nearest.
+ *
+ * Every patch is held outside `clearing` by its own reach as well as by the clearing itself, not
+ * just clear of the middle. A patch whose centre was allowed to sit inside the clearing would still
+ * wander into it, and the camera is standing there.
  */
+/**
+ * A point on a square between `inner` and `outer` from the origin.
+ *
+ * Rejection rather than an angle-and-radius sample, because the region wanted is a square annulus:
+ * sampling by angle and radius needs a non-uniform radius to fill a square, and getting that wrong
+ * crowds the corners. Falls back to the outer edge rather than returning nothing, so a clearing too
+ * big for the plain costs the herd its spread rather than its animals.
+ */
+function awayFromClearing(
+  rng: () => number,
+  inner: number,
+  outer: number,
+  avoid: { x: number; z: number },
+): { x: number; z: number } {
+  const from = Math.min(inner, outer * 0.9);
+  const clearOf = (x: number, z: number) => Math.hypot(x - avoid.x, z - avoid.z) >= from;
+  for (let attempt = 0; attempt < 64; attempt++) {
+    const x = range(rng, -outer, outer);
+    const z = range(rng, -outer, outer);
+    if (clearOf(x, z)) return { x, z };
+  }
+  const x = avoid.x + range(rng, -outer, outer);
+  const z = avoid.z + range(rng, -outer, outer);
+  const d = Math.hypot(x - avoid.x, z - avoid.z) || 1;
+  return { x: avoid.x + ((x - avoid.x) / d) * from, z: avoid.z + ((z - avoid.z) / d) * from };
+}
+
 export function herd(
   seed: string,
   count: number,
   size: number = SAVANNA_SIZE,
   spacing: number = 8,
+  clearing: number = PLAIN_CLEARING,
+  avoid: { x: number; z: number } = { x: 0, z: 0 },
 ): readonly Grazer[] {
   const rng = rngFromSeed(`${seed}:herd`);
   // Leaves the middle of the plain open, so the herd is spread across it rather than crowded into
@@ -253,13 +292,18 @@ export function herd(
     // Divided round the three kinds so the mix is guaranteed rather than left to chance: a herd of
     // twenty that happened to draw fifteen wildebeest and no giraffes is not a mix.
     const kind = GRAZER_KINDS[i % GRAZER_KINDS.length];
-    const reachX = range(rng, size * 0.04, size * 0.11);
-    const reachZ = range(rng, size * 0.04, size * 0.11);
+    // A smaller reach than it could be, because it is added to the clearing and both come off the
+    // same budget. A reach that fills the gap turns the herd into a thin ring around the middle.
+    const reachX = range(rng, size * 0.03, size * 0.08);
+    const reachZ = range(rng, size * 0.03, size * 0.08);
     const grazeDuty = range(rng, 0.3, 0.6);
+    // Outside the clearing by this animal's own reach, so it can graze towards the middle but never
+    // into it. Falls back to the far side of the annulus if the draws keep landing too close in.
+    const home = awayFromClearing(rng, clearing + Math.max(reachX, reachZ), limit, avoid);
     return {
       kind,
-      homeX: range(rng, -limit, limit),
-      homeZ: range(rng, -limit, limit),
+      homeX: home.x,
+      homeZ: home.z,
       reachX,
       reachZ,
       rate: range(rng, 0.1, 0.26),

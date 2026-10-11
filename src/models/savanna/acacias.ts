@@ -1,4 +1,4 @@
-import { ACACIA_HEIGHT, MAX_ACACIAS } from '../../config';
+import { ACACIA_HEIGHT, MAX_ACACIAS, PLAIN_CLEARING } from '../../config';
 import { rngFromSeed } from '../../core/random';
 import type { Savanna } from './ground';
 
@@ -18,10 +18,31 @@ export interface Acacia {
 export interface ScatterOptions {
   minSpacing: number;
   margin: number;
+  /**
+   * Radius kept clear around `clearOf`, so the eye-level camera is not standing under a canopy.
+   */
+  clearingRadius: number;
+  /**
+   * Where the clearing is. Defaults to the origin, which suits a scene viewed from above; the
+   * savanna's viewer stands well off to one side, so it passes its own.
+   */
+  clearOf: { x: number; z: number };
+  /**
+   * Furthest out from the middle that a tree may stand, as a fraction of the plain's half-width.
+   *
+   * The trees are a belt rather than a field, leaving open grass beyond them. The camera rig puts
+   * its ridge and flyover positions at a fixed fraction of the framing radius, and when the trees
+   * reached the edge of the plain those cameras stood inside the wood with a canopy across the lens.
+   */
+  outerReach: number;
   maxAttempts: number;
 }
 
-const DEFAULTS: ScatterOptions = { minSpacing: 12, margin: 12, maxAttempts: 120_000 };
+const ORIGIN = { x: 0, z: 0 };
+const DEFAULTS: ScatterOptions = {
+  minSpacing: 10, margin: 12, clearingRadius: PLAIN_CLEARING, outerReach: 0.62,
+  clearOf: ORIGIN, maxAttempts: 120_000,
+};
 
 /**
  * Dart-throwing scatter of acacias, weighted by the plain's density noise.
@@ -49,10 +70,14 @@ export function scatterAcacias(
   for (let attempt = 0; attempt < o.maxAttempts && trees.length < target; attempt++) {
     const x = (rng() * 2 - 1) * half;
     const z = (rng() * 2 - 1) * half;
+    if (Math.hypot(x - o.clearOf.x, z - o.clearOf.z) < o.clearingRadius) continue;
+    if (Math.hypot(x, z) > (savanna.size / 2) * o.outerReach) continue;
     const density = savanna.acaciaDensity(x, z);
-    // The power curve keeps the thin areas genuinely thin, so the plain has open ground to graze on
-    // rather than an even sprinkle everywhere.
-    const acceptance = Math.pow(Math.max(0, density - 0.42) * 2.6, 1.5) * 1.4 + 0.01;
+    // The power curve keeps the thin areas thin, so the belt has open ground between clumps rather
+    // than an even sprinkle. Floored, because without a floor the count depends on where this
+    // particular seed's noise happens to be low: the same belt held 95 trees across the whole plain
+    // and 8 once it was cut down, which made the count slider meaningless rather than varied.
+    const acceptance = Math.max(0.34, Math.pow(Math.max(0, density - 0.42) * 2.6, 1.5) * 1.4 + 0.01);
     if (rng() > acceptance) continue;
 
     const gi = Math.floor(x / cell);

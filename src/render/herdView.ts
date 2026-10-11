@@ -147,9 +147,14 @@ export class HerdView {
    */
   set(kinds: readonly GrazerKind[], loaded: Readonly<Partial<Record<GrazerKind, LoadedMesh>>>): void {
     this.clear();
-    for (const kind of kinds) {
+    // Deduped first. `kinds` is one entry per animal, so iterating it directly builds a whole set of
+    // meshes eighteen times over, and only the last set of each kind survives in `draws` — leaving
+    // fifteen sets behind in the scene, never posed, sitting at the origin. The eye-level camera
+    // stands at the origin, so the result was a face full of animals nobody had placed.
+    const present: GrazerKind[] = [];
+    for (const kind of kinds) if (!present.includes(kind)) present.push(kind);
+    for (const kind of present) {
       const members = kinds.reduce((n, k) => n + (k === kind ? 1 : 0), 0);
-      if (members === 0) continue;
       const spec = GRAZER_SPECS[kind];
       const model: LoadedMesh | null = loaded[kind] ?? null;
       const draw: KindDraw = {
