@@ -133,13 +133,13 @@ export const FISH_FRONT_END: FrontEnd = 'negative';
 // the interest is what is standing on it rather than what the land is doing.
 export const SAVANNA_SIZE = 170;
 /**
- * The most acacias the tree belt will take.
+ * The most acacias the plain will take.
  *
- * The scatter is limited by the room between trees, not by the slider, so this is the belt's real
- * ceiling and not an arbitrary cap: a slider reaching well past it would do nothing over most of its
- * travel, which reads as a broken control. Measured at 42 to 50 across seeds.
+ * The scatter is limited by how much room there is between trees rather than by the slider, so this
+ * is the spacing's ceiling and not an arbitrary cap: a slider reaching well past it would do nothing
+ * over most of its travel, which reads as a broken control.
  */
-export const MAX_ACACIAS = 48;
+export const MAX_ACACIAS = 105;
 export const ACACIA_HEIGHT = 4.6;
 export const HERD_SPEED_DEFAULT = 3.2;
 export const HERD_SPEED_MAX = 9;

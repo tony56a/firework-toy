@@ -3,10 +3,10 @@ import { HERD_SPEED_DEFAULT, PLAIN_CLEARING, SAVANNA_SIZE } from '../config';
 import type { AppState } from '../models/appState';
 import type { CameraFraming } from '../models/cameraFraming';
 import type { FireworkSim } from '../models/fireworks';
-import { scatterAcacias, type Acacia } from '../models/savanna/acacias';
+import { scatterAcacias } from '../models/savanna/acacias';
 import { Savanna } from '../models/savanna/ground';
 import { GRAZER_KINDS, GRAZER_SPECS, herd, grazerPose, type Grazer, type GrazerKind } from '../models/savanna/grazer';
-import { AcaciaView } from '../render/acaciaView';
+import { TreeView } from '../render/treeView';
 import { loadGltf, type LoadedMesh } from '../render/gltfAssets';
 import { HerdView } from '../render/herdView';
 import { SavannaView } from '../render/savannaView';
@@ -52,11 +52,11 @@ export class SavannaScene extends SceneBase {
     eye: VIEWER,
   };
   private readonly groundView: SavannaView;
-  private readonly acaciaView: AcaciaView;
+  private readonly treeView: TreeView;
   private herdView: HerdView;
   /** Rebuilt when the seed changes, so it is read back through the `ground` getter. */
   private plain: Savanna;
-  private acacias: Acacia[] = [];
+  private acacias: ReturnType<typeof scatterAcacias> = [];
   private grazers: readonly Grazer[] = [];
   private speed = HERD_SPEED_DEFAULT;
   /**
@@ -73,7 +73,7 @@ export class SavannaScene extends SceneBase {
   constructor(sim: FireworkSim, report: SceneReport, seed: string) {
     super(sim, report);
     this.groundView = new SavannaView(this.three);
-    this.acaciaView = new AcaciaView(this.three);
+    this.treeView = new TreeView(this.three);
     this.herdView = new HerdView(this.three);
     this.plain = new Savanna(seed);
     this.seed = seed;
@@ -142,7 +142,7 @@ export class SavannaScene extends SceneBase {
    */
   private rebuildAcacias(seed: string, count: number): void {
     this.acacias = scatterAcacias(this.plain, seed, count);
-    this.acaciaView.set(this.acacias);
+    this.treeView.set(this.acacias);
   }
 
   /**

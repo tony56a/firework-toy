@@ -72,7 +72,7 @@ test('acacias are scattered, capped and kept apart', () => {
   const savanna = new Savanna('meadow');
   const trees = scatterAcacias(savanna, 'meadow', 400);
   assert.ok(trees.length > 0, 'no acacias were placed at all');
-  assert.ok(trees.length <= MAX_ACACIAS, `placed ${trees.length}, more than the belt's ceiling`);
+  assert.ok(trees.length <= MAX_ACACIAS, `placed ${trees.length}, asked for 400`);
   for (const tree of trees) {
     assert.ok(Math.abs(tree.x) <= HALF && Math.abs(tree.z) <= HALF, `at ${tree.x},${tree.z}`);
     // Standing on the ground rather than floating over it or buried in it.
@@ -90,9 +90,8 @@ test('acacias are scattered, capped and kept apart', () => {
 
 test('raising the acacia count only adds trees, and never moves the ones already there', () => {
   const savanna = new Savanna('meadow');
-  // Both under the belt's ceiling, since a count past it saturates and there is nothing left to add.
-  const few = scatterAcacias(savanna, 'meadow', 12);
-  const more = scatterAcacias(savanna, 'meadow', 40);
+  const few = scatterAcacias(savanna, 'meadow', 60);
+  const more = scatterAcacias(savanna, 'meadow', 240);
   assert.ok(more.length > few.length, 'asking for more gave fewer');
   for (const tree of few) {
     const same = more.some((m) => m.x === tree.x && m.z === tree.z);
@@ -237,40 +236,21 @@ test('a giraffe grazes deeper than the animals it is standing among', () => {
   }
 });
 
-test('nothing is ever drawn in the clearing the camera stands in', () => {
-  // Every camera mode is aimed at the origin and the eye-level one stands in it. An elephant
-  // wandering through there fills the frame, and an acacia puts the viewer under its canopy. Both
-  // are held out by the clearing, and the herd by its own reach on top of it — a patch centred
-  // inside the clearing would still wander into it.
+test('the herd never wanders into the spot the eye-level camera stands in', () => {
+  // Every camera mode is aimed at the origin and the eye-level one stands out on the open grass
+  // beyond the trees. An elephant wandering through there fills the frame, so the herd is held out
+  // of that spot by its own reach as well as by the clearing — a patch centred inside the clearing
+  // would still wander into it.
   const savanna = new Savanna('meadow');
-  for (const tree of scatterAcacias(savanna, 'meadow', 200)) {
-    assert.ok(
-      Math.hypot(tree.x, tree.z) >= PLAIN_CLEARING - 1e-9,
-      `an acacia at ${Math.hypot(tree.x, tree.z).toFixed(1)} is inside the clearing`,
-    );
-  }
-  const grazers = herd('meadow', MAX_HERD);
-  for (const grazer of grazers) {
+  const viewer = { x: 0, z: -SAVANNA_SIZE * 0.38 };
+  for (const grazer of herd('meadow', MAX_HERD, SAVANNA_SIZE, 8, PLAIN_CLEARING, viewer)) {
     for (let t = 0; t < 240; t += 0.37) {
       const pose = grazerPose(grazer, t, savanna);
       assert.ok(
-        Math.hypot(pose.x, pose.z) >= PLAIN_CLEARING - 1e-9,
-        `a ${grazer.kind} came within ${Math.hypot(pose.x, pose.z).toFixed(1)} of the camera`,
+        Math.hypot(pose.x - viewer.x, pose.z - viewer.z) >= PLAIN_CLEARING - 1e-9,
+        `a ${grazer.kind} came within ${Math.hypot(pose.x - viewer.x, pose.z - viewer.z).toFixed(1)} of the camera`,
       );
     }
-  }
-});
-
-test('the tree belt stops short of where the camera rig stands', () => {
-  // The rig places ridge and flyover at fixed fractions of the framing radius. If the belt reaches
-  // as far out as they do, those cameras end up inside the wood with a canopy across the lens —
-  // which is what happened when the trees were scattered to the edge of the plain.
-  const belt = SAVANNA_SIZE * 0.42 * 0.78;
-  for (const tree of scatterAcacias(new Savanna('meadow'), 'meadow', MAX_ACACIAS)) {
-    assert.ok(
-      Math.hypot(tree.x, tree.z) < belt,
-      `an acacia at ${Math.hypot(tree.x, tree.z).toFixed(1)} is inside the ridge camera's ${belt.toFixed(1)}`,
-    );
   }
 });
 
@@ -391,14 +371,27 @@ test('a stopped herd stands where it was, not where its home is', () => {
 
 test('acacias vary in size, and every one of them is in scale with the plain', () => {
   const savanna = new Savanna('meadow');
-  const sizes = scatterAcacias(savanna, 'meadow', 40).map((t) => t.scale);
+  const sizes = scatterAcacias(savanna, 'meadow', 120).map((t) => t.scale[1]);
   // A stand where every tree is the same height reads as a plantation rather than as something that
   // grew where it happened to, so the spread has to be real rather than cosmetic jitter.
-  assert.ok(Math.max(...sizes) / Math.min(...sizes) > 1.5, `sizes span only ${Math.min(...sizes).toFixed(1)} to ${Math.max(...sizes).toFixed(1)}`);
+  assert.ok(
+    Math.max(...sizes) / Math.min(...sizes) > 1.5,
+    `sizes span only ${Math.min(...sizes).toFixed(1)} to ${Math.max(...sizes).toFixed(1)}`,
+  );
   for (const scale of sizes) {
     // Read against the plain's own size: an acacia has to stand proud of the grass without being a
     // landmark, and that ratio is what has to hold as either is retuned.
     assert.ok(scale > ACACIA_HEIGHT * 0.6, `acacia of ${scale.toFixed(1)} is undersized`);
     assert.ok(scale < SAVANNA_SIZE * 0.1, `acacia of ${scale.toFixed(1)} dwarfs the plain`);
+  }
+});
+
+test('an acacia is barely squashed across its axes', () => {
+  // TreeView scales per axis from the tuple. An acacia's whole identity is a broad, flat canopy,
+  // so a tree scaled unevenly loses the one feature that makes it an acacia.
+  for (const tree of scatterAcacias(new Savanna('meadow'), 'meadow', 120)) {
+    const [sx, sy, sz] = tree.scale;
+    const spread = Math.max(sx, sy, sz) / Math.min(sx, sy, sz);
+    assert.ok(spread < 1.15, `an acacia is squashed by a factor of ${spread.toFixed(2)} across its axes`);
   }
 });

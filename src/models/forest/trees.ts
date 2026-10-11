@@ -1,21 +1,9 @@
 import { MAX_TREES } from '../../config';
 import { rngFromSeed } from '../../core/random';
+import type { ModelKind, TreeInstance } from '../modelKinds';
 import type { Terrain } from './terrain';
 
-export type TreeKind = 'pine' | 'oak';
-
-export interface TreeInstance {
-  kind: TreeKind;
-  x: number;
-  y: number;
-  z: number;
-  rotationY: number;
-  tiltX: number;
-  tiltZ: number;
-  scale: [number, number, number];
-  /** Two random numbers in [0, 1) the renderer uses to vary foliage color. */
-  tint: [number, number];
-}
+export type TreeKind = ModelKind;
 
 export interface ScatterOptions {
   minSpacing: number;

@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { MODEL_KINDS } from '../models/modelKinds';
-import type { TreeInstance } from '../models/forest/trees';
+import { MODEL_KINDS, type TreeInstance } from '../models/modelKinds';
 import { LEAF_MATERIAL, TRUNK_MATERIAL, modelGeometry, modelLeafColor } from './modelGeometry';
 
 /** Renders TreeInstances as two instanced meshes (trunks, foliage) per species. */
