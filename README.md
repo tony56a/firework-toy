@@ -48,8 +48,15 @@ load cost one animal its looks rather than the whole herd.
 
 Three things about a file cannot be derived from it and are measured instead, then kept beside the
 path: which axis is nose-to-tail (`lengthAxis` — a giraffe is taller than it is long, so the longest
-axis is the wrong one), which end the head is on (`front` — the elephant's tusks and the rhino's
-horns gave it away), and the material policy. The rest is measured every load.
+axis is the wrong one), which end the head is on (`front`), and the material policy. The rest is
+measured every load.
+
+The `front` of each animal was first set by looking at a render of it, and that was wrong for two of
+the three — the elephant and the giraffe were being drawn facing backwards. They are now set from a
+feature that only exists at one end: the elephant's trunk reaches below the body's floor at `+x`, the
+giraffe's head tops out at `+x` while its feet are at `-x`, and the rhino's horns are the two small
+meshes at raw `z ≈ -1.2` and `-1.4`, which lay onto `-x`. Reading an orientation off a picture does
+not work; measuring one does.
 
 The rhino is rigged, with 33 joints and a skin, and the export carries no animations. It is baked to
 a static mesh in its rest pose, and the joint attributes are dropped: a bone texture nothing binds is

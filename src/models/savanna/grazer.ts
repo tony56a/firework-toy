@@ -60,13 +60,13 @@ export const GRAZER_SPECS: Readonly<Record<GrazerKind, GrazerSpec>> = {
   // size from the animal that replaces it a moment later.
   elephant: {
     length: 7, height: 4.7, grazeDrop: 1.9, neck: 0.3, stride: 0.8,
-    model: ELEPHANT_MODEL_URL, lengthAxis: 'x', front: 'negative',
+    model: ELEPHANT_MODEL_URL, lengthAxis: 'x', front: 'positive',
   },
   // Authored standing and 519 units tall, in centimetres. Its length is on x, not on the y it is
   // tallest in, which is the whole reason `lengthAxis` exists.
   giraffe: {
     length: 6.5, height: 9.8, grazeDrop: 7.5, neck: 1.2, stride: 1.15,
-    model: GIRAFFE_MODEL_URL, lengthAxis: 'x', front: 'negative',
+    model: GIRAFFE_MODEL_URL, lengthAxis: 'x', front: 'positive',
   },
   // The only one of the three that is longest nose to tail, and the only rigged one: see its URL.
   rhino: {
